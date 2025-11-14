@@ -8,5 +8,5 @@ import (
 )
 
 func Resolve(lang appfile.Lang, expSet *experiments.Set) builder.Impl {
-	return v2builder.BuilderImpl{}
+	return v2builder.New()
 }
