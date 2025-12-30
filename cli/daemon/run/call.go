@@ -14,7 +14,7 @@ import (
 	"github.com/tailscale/hujson"
 
 	"encr.dev/parser/encoding"
-	v1 "encr.dev/proto/encore/parser/meta/v1"
+	v1 "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type ApiCallParams struct {

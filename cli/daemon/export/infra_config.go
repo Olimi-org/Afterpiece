@@ -16,7 +16,7 @@ import (
 	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/dockerbuild"
 	"encr.dev/pkg/fns"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 )
 
 // defaultInfraConfigPath is the path in the image where the environment configuration is mounted.
-const defaultInfraConfigPath dockerbuild.ImagePath = "/encore/infra.config.json"
+const defaultInfraConfigPath dockerbuild.ImagePath = "/afterpiece/infra.config.json"
 
 type EmbeddedInfraConfigParams struct {
 	// The path to the infra config file.

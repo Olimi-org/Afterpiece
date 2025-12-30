@@ -19,7 +19,6 @@ require (
 	github.com/charmbracelet/bubbletea v0.24.2
 	github.com/charmbracelet/lipgloss v0.7.1
 	github.com/cockroachdb/errors v1.11.1
-	github.com/containerd/stargz-snapshotter/estargz v0.14.3
 	github.com/dave/jennifer v1.7.0
 	github.com/evanw/esbuild v0.19.8
 	github.com/fatih/color v1.15.0
@@ -28,7 +27,7 @@ require (
 	github.com/frankban/quicktest v1.14.6
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/getkin/kin-openapi v0.115.0
-	github.com/gofrs/uuid v4.4.0+incompatible
+	github.com/gofrs/uuid/v5 v5.3.2
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/golang/protobuf v1.5.4
 	github.com/google/btree v1.1.3
@@ -53,7 +52,6 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/mattn/go-runewidth v0.0.15
-	github.com/mattn/go-sqlite3 v1.14.18
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/nsqio/nsq v1.2.1
@@ -94,6 +92,7 @@ require (
 require (
 	cel.dev/expr v0.19.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/pganalyze/pg_query_go/v6 v6.1.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
@@ -224,7 +223,7 @@ require (
 	modernc.org/libc v1.62.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.9.1 // indirect
-	modernc.org/sqlite v1.37.0 // indirect
+	modernc.org/sqlite v1.37.0
 	nhooyr.io/websocket v1.8.10 // indirect
 )
 

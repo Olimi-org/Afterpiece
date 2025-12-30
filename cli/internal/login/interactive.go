@@ -13,7 +13,7 @@ import (
 
 	"github.com/briandowns/spinner"
 
-	"encr.dev/cli/cmd/encore/cmdutil"
+	"encr.dev/cli/cmd/afterpiece/cmdutil"
 	"encr.dev/cli/internal/browser"
 	"encr.dev/cli/internal/platform"
 	"encr.dev/internal/conf"

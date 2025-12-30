@@ -43,8 +43,8 @@ import (
 	"encr.dev/pkg/promise"
 	"encr.dev/pkg/svcproxy"
 	"encr.dev/pkg/vcs"
-	daemonpb "encr.dev/proto/encore/daemon"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // Run represents a running Encore application.

@@ -14,7 +14,7 @@ import (
 	"encore.dev/appruntime/exported/model"
 	"encore.dev/appruntime/exported/trace2"
 	"encr.dev/pkg/option"
-	tracepb2 "encr.dev/proto/encore/engine/trace2"
+	tracepb2 "encr.dev/proto/afterpiece/engine/trace2"
 )
 
 // ParseEvent parses a single event from the buffer.

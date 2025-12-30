@@ -6,7 +6,7 @@ import (
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/paths"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 var ErrorCodeMap = map[string]int64{

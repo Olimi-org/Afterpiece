@@ -19,7 +19,7 @@ import (
 	"encr.dev/pkg/errlist"
 	"encr.dev/pkg/errors"
 	"encr.dev/pkg/paths"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // NewList constructs a new list.

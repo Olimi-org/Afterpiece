@@ -9,8 +9,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 
 	"encr.dev/parser/encoding"
-	meta "encr.dev/proto/encore/parser/meta/v1"
-	schema "encr.dev/proto/encore/parser/schema/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
+	schema "encr.dev/proto/afterpiece/parser/schema/v1"
 )
 
 func (g *Generator) bodyContent(params []*encoding.ParameterEncoding) openapi3.Content {

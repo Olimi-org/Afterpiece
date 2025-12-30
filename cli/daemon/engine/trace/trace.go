@@ -19,8 +19,8 @@ import (
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/cli/daemon/internal/sym"
 	"encr.dev/pkg/eerror"
-	tracepb "encr.dev/proto/encore/engine/trace"
-	metapb "encr.dev/proto/encore/parser/meta/v1"
+	tracepb "encr.dev/proto/afterpiece/engine/trace"
+	metapb "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type ID [16]byte

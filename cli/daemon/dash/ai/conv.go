@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"encr.dev/pkg/clientgen"
-	meta "encr.dev/proto/encore/parser/meta/v1"
-	schema "encr.dev/proto/encore/parser/schema/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
+	schema "encr.dev/proto/afterpiece/parser/schema/v1"
 	"encr.dev/v2/internals/resourcepaths"
 )
 

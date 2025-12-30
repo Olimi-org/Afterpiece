@@ -80,8 +80,8 @@ The configuration is stored in one ore more TOML files on the filesystem.
 The configuration is read from the following files, in order:
 
 ### Global configuration
-* ` + bt("$XDG_CONFIG_HOME/encore/config") + `
-* ` + bt("$HOME/.config/encore/config") + `
+* ` + bt("$XDG_CONFIG_HOME/afterpiece/config") + `
+* ` + bt("$HOME/.config/afterpiece/config") + `
 * ` + bt("$HOME/.encoreconfig") + `
 
 ### Application-specific configuration

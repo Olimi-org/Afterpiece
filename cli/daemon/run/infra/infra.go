@@ -20,7 +20,7 @@ import (
 	"encr.dev/cli/daemon/sqldb"
 	"encr.dev/internal/optracker"
 	"encr.dev/pkg/environ"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type Type string

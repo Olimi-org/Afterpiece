@@ -6,8 +6,8 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 
-	meta "encr.dev/proto/encore/parser/meta/v1"
-	schema "encr.dev/proto/encore/parser/schema/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
+	schema "encr.dev/proto/afterpiece/parser/schema/v1"
 )
 
 // genSchema generates a JSON payload to match the schema.

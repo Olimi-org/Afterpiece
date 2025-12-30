@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"encr.dev/pkg/noopgateway"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // Describe computes a Description based on the given metadata and service discovery configuration.

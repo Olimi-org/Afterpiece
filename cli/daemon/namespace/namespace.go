@@ -9,7 +9,7 @@ import (
 	"github.com/rs/xid"
 
 	"encr.dev/cli/daemon/apps"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 var (

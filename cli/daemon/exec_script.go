@@ -13,7 +13,7 @@ import (
 	"encr.dev/internal/optracker"
 	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/paths"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // ExecScript executes a one-off script.

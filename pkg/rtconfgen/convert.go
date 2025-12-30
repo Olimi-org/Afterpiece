@@ -11,7 +11,7 @@ import (
 
 	"go.encore.dev/platform-sdk/pkg/auth"
 
-	runtimev1 "encr.dev/proto/encore/runtime/v1"
+	runtimev1 "encr.dev/proto/afterpiece/runtime/v1"
 
 	encore "encore.dev"
 	"encore.dev/appruntime/exported/config"

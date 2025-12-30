@@ -3,7 +3,7 @@ package mcp
 import (
 	"time"
 
-	metav1 "encr.dev/proto/encore/parser/meta/v1"
+	metav1 "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // findServiceNameForPackage returns the service name for a given package path

@@ -4,7 +4,7 @@ import (
 	"go/scanner"
 
 	"encr.dev/cli/daemon/export"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // Export exports the app.

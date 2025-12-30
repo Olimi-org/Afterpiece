@@ -16,7 +16,7 @@ import (
 	"encore.dev/appruntime/exported/stack"
 	"encore.dev/appruntime/exported/trace2"
 	"encore.dev/types/uuid"
-	tracepb2 "encr.dev/proto/encore/engine/trace2"
+	tracepb2 "encr.dev/proto/afterpiece/engine/trace2"
 )
 
 func TestParse(t *testing.T) {

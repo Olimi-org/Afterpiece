@@ -8,7 +8,7 @@ import (
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/cli/daemon/namespace"
 	"encr.dev/pkg/fns"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 func (s *Server) CreateNamespace(ctx context.Context, req *daemonpb.CreateNamespaceRequest) (*daemonpb.Namespace, error) {

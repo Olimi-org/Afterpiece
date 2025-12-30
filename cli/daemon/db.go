@@ -19,7 +19,7 @@ import (
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/pgproxy"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 func toRoleType(role daemonpb.DBRole) sqldb.RoleType {

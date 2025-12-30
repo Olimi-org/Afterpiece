@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 
 	"encr.dev/pkg/fns"
-	metav1 "encr.dev/proto/encore/parser/meta/v1"
+	metav1 "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type CreateAppParams struct {

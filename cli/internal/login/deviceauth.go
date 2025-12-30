@@ -11,7 +11,7 @@ import (
 	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
 
-	"encr.dev/cli/cmd/encore/cmdutil"
+	"encr.dev/cli/cmd/afterpiece/cmdutil"
 	"encr.dev/cli/internal/browser"
 	"encr.dev/cli/internal/platform"
 	"encr.dev/internal/conf"

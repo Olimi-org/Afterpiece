@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"encr.dev/pkg/idents"
-	meta "encr.dev/proto/encore/parser/meta/v1"
-	schema "encr.dev/proto/encore/parser/schema/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
+	schema "encr.dev/proto/afterpiece/parser/schema/v1"
 )
 
 // ParameterLocation is the request/response home of the parameter

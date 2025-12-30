@@ -11,7 +11,7 @@ import (
 
 	"encr.dev/pkg/errinsrc"
 	. "encr.dev/pkg/errinsrc/internal"
-	schema "encr.dev/proto/encore/parser/schema/v1"
+	schema "encr.dev/proto/afterpiece/parser/schema/v1"
 )
 
 func handleCUEError(err error, pathPrefix string, param ErrParams) error {

@@ -16,7 +16,7 @@ import (
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/idents"
 	"encr.dev/pkg/paths"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 	"encr.dev/v2/internals/parsectx"
 	"encr.dev/v2/internals/perr"
 )

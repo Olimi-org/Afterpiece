@@ -30,8 +30,8 @@ import (
 	"encr.dev/pkg/editors"
 	"encr.dev/pkg/errlist"
 	"encr.dev/pkg/jsonext"
-	tracepb2 "encr.dev/proto/encore/engine/trace2"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	tracepb2 "encr.dev/proto/afterpiece/engine/trace2"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type handler struct {
