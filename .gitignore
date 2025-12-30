@@ -3,6 +3,7 @@
 /encore
 /git-remote-encore
 /target
+/resources/*
 
 # Don't commit dotfiles
 /.encore
