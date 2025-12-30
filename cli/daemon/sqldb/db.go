@@ -19,7 +19,7 @@ import (
 
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/option"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // DB represents a single database instance within a cluster.

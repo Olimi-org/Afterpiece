@@ -14,7 +14,7 @@ import (
 	"encr.dev/cli/daemon/run"
 	"encr.dev/cli/internal/onboarding"
 	"encr.dev/pkg/errlist"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // OnStart implements run.EventListener.

@@ -17,7 +17,7 @@ import (
 	"encr.dev/internal/userconfig"
 	"encr.dev/internal/version"
 	"encr.dev/pkg/fns"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // Run runs the application.

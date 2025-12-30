@@ -2,7 +2,7 @@ package daemon
 
 import (
 	"encr.dev/cli/daemon/run"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // Check checks the app for compilation errors.

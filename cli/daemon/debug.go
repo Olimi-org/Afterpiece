@@ -15,7 +15,7 @@ import (
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/vcs"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 func (s *Server) DumpMeta(ctx context.Context, req *daemonpb.DumpMetaRequest) (*daemonpb.DumpMetaResponse, error) {

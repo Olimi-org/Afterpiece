@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 func TestBuildMigrationHistory(t *testing.T) {

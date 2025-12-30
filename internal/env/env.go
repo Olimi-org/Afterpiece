@@ -11,7 +11,7 @@ import (
 )
 
 // These can be overwritten using
-// `go build -ldflags "-X encr.dev/cli/internal/env.alternativeEncoreRuntimesPath=$HOME/src/github.com/encoredev/encore/runtimes"`.
+// `go build -ldflags "-X encr.dev/cli/internal/env.alternativeEncoreRuntimesPath=$HOME/src/github.com/encoredev/afterpiece/runtimes"`.
 var (
 	alternativeEncoreRuntimesPath = ""
 	alternativeEncoreGoPath       = ""

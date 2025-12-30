@@ -27,7 +27,7 @@ import (
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/vcs"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // Docker exports the app as a docker image.

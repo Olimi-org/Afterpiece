@@ -29,7 +29,7 @@ import (
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/noopgateway"
 	"encr.dev/pkg/noopgwdesc"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type procGroupOptions struct {

@@ -5,10 +5,10 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"encr.dev/cli/daemon/apps"
-	"encr.dev/proto/encore/daemon"
+	"encr.dev/proto/afterpiece/daemon"
 )
 
 // ParseSQLSchema uses SQLC to parse the migration files for an encore database and returns

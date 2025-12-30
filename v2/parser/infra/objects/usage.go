@@ -10,7 +10,7 @@ import (
 	"encr.dev/v2/internals/schema/schemautil"
 	"encr.dev/v2/parser/resource/usage"
 
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type MethodUsage struct {

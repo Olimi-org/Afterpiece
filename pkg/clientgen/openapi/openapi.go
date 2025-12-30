@@ -11,7 +11,7 @@ import (
 
 	"encr.dev/parser/encoding"
 	"encr.dev/pkg/clientgen/clientgentypes"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type GenVersion int

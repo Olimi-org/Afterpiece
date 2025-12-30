@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"encr.dev/cli/daemon/apps"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // CreateApp adds tracking for a new app

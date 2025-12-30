@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/option"
-	meta "encr.dev/proto/encore/parser/meta/v1"
-	runtimev1 "encr.dev/proto/encore/runtime/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
+	runtimev1 "encr.dev/proto/afterpiece/runtime/v1"
 )
 
 type ResourceID interface {

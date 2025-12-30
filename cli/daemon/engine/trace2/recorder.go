@@ -11,7 +11,7 @@ import (
 
 	"encore.dev/appruntime/exported/trace2"
 	"encr.dev/pkg/traceparser"
-	tracepb2 "encr.dev/proto/encore/engine/trace2"
+	tracepb2 "encr.dev/proto/afterpiece/engine/trace2"
 )
 
 type Recorder struct {

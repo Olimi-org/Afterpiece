@@ -13,7 +13,7 @@ import (
 	"encr.dev/cli/daemon/run"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/fns"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // Test runs tests.

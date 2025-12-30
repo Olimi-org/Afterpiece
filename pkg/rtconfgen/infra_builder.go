@@ -3,8 +3,8 @@ package rtconfgen
 import (
 	"slices"
 
-	meta "encr.dev/proto/encore/parser/meta/v1"
-	runtimev1 "encr.dev/proto/encore/runtime/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
+	runtimev1 "encr.dev/proto/afterpiece/runtime/v1"
 )
 
 type InfraBuilder struct {

@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/golang/protobuf/proto"
 	"github.com/rs/zerolog/log"
 	"go4.org/syncutil"
+	"google.golang.org/protobuf/proto"
 
 	"encore.dev/appruntime/exported/experiments"
 	"encr.dev/cli/internal/manifest"
@@ -23,7 +23,7 @@ import (
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/watcher"
 	"encr.dev/pkg/xos"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 var ErrNotFound = errors.New("app not found")

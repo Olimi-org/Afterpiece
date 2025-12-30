@@ -11,7 +11,7 @@ import (
 	"encr.dev/pkg/clientgen/clientgentypes"
 	"encr.dev/pkg/clientgen/openapi"
 	"encr.dev/pkg/errinsrc/srcerrors"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // Lang represents a programming language or dialect that we support generating code for.

@@ -7,7 +7,7 @@ import (
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/idents"
 	"encr.dev/pkg/paths"
-	schema "encr.dev/proto/encore/parser/schema/v1"
+	schema "encr.dev/proto/afterpiece/parser/schema/v1"
 	"encr.dev/v2/internals/pkginfo"
 	schemav2 "encr.dev/v2/internals/schema"
 	"encr.dev/v2/internals/schema/schemautil"

@@ -33,8 +33,8 @@ import (
 	"encr.dev/pkg/clientgen/clientgentypes"
 	"encr.dev/pkg/errlist"
 	"encr.dev/pkg/fns"
-	daemonpb "encr.dev/proto/encore/daemon"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 var _ daemonpb.DaemonServer = (*Server)(nil)

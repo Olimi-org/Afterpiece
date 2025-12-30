@@ -13,7 +13,7 @@ import (
 
 	"encr.dev/pkg/ansi"
 	"encr.dev/pkg/errlist"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 type OutputStream interface {

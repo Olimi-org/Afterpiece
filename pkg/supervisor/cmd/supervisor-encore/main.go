@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"encr.dev/pkg/supervisor"
-	runtimev1 "encr.dev/proto/encore/runtime/v1"
+	runtimev1 "encr.dev/proto/afterpiece/runtime/v1"
 )
 
 func main() {

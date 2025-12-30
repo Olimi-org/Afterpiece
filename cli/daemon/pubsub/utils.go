@@ -1,7 +1,7 @@
 package pubsub
 
 import (
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // IsUsed reports whether the application uses pubsub at all.

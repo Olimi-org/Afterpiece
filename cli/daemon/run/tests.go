@@ -24,7 +24,7 @@ import (
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/paths"
 	"encr.dev/pkg/vcs"
-	runtimev1 "encr.dev/proto/encore/runtime/v1"
+	runtimev1 "encr.dev/proto/afterpiece/runtime/v1"
 )
 
 // TestParams groups the parameters for the Test method.

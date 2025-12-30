@@ -18,7 +18,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/lib/pq"
 
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 // MigrationReader is an interface for reading migration files. It has two main

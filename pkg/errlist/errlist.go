@@ -11,7 +11,7 @@ import (
 
 	"encr.dev/pkg/errinsrc"
 	"encr.dev/pkg/errinsrc/srcerrors"
-	daemonpb "encr.dev/proto/encore/daemon"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // Verbose controls whether the error list prints all errors

@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"encr.dev/internal/optracker"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 
 	// stdlib registers the "pgx" driver to database/sql.
 	_ "github.com/jackc/pgx/v5/stdlib"

@@ -14,7 +14,7 @@ import (
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/scrub"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 	"encr.dev/v2/v2builder"
 )
 

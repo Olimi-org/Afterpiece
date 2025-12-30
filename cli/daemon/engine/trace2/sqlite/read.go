@@ -13,7 +13,7 @@ import (
 
 	"encr.dev/cli/daemon/engine/trace2"
 	"encr.dev/pkg/fns"
-	tracepb2 "encr.dev/proto/encore/engine/trace2"
+	tracepb2 "encr.dev/proto/afterpiece/engine/trace2"
 )
 
 func (s *Store) List(ctx context.Context, q *trace2.Query, iter trace2.ListEntryIterator) error {

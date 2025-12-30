@@ -22,7 +22,7 @@ import (
 	"go4.org/syncutil"
 
 	"encr.dev/pkg/noopgateway"
-	runtimev1 "encr.dev/proto/encore/runtime/v1"
+	runtimev1 "encr.dev/proto/afterpiece/runtime/v1"
 )
 
 // Config is the configuration used by the supervisor.
@@ -252,7 +252,7 @@ func (p *supervisedProc) Supervise() {
 
 func readBuildInfo() (BuildInfo, error) {
 	var info BuildInfo
-	data, err := os.ReadFile("/encore/build-info.json")
+	data, err := os.ReadFile("/afterpiece/build-info.json")
 	if err == nil {
 		err = json.Unmarshal(data, &info)
 	}

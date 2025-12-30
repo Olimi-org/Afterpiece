@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"go4.org/syncutil"
 
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type Server struct {

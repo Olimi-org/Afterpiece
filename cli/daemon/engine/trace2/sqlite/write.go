@@ -16,7 +16,7 @@ import (
 
 	"encr.dev/cli/daemon/engine/trace2"
 	"encr.dev/pkg/fns"
-	tracepbcli "encr.dev/proto/encore/engine/trace2"
+	tracepbcli "encr.dev/proto/afterpiece/engine/trace2"
 )
 
 // New creates a new store backed by the given db.

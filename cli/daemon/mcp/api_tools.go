@@ -16,8 +16,8 @@ import (
 
 	"encr.dev/cli/daemon/run"
 	"encr.dev/pkg/builder"
-	metav1 "encr.dev/proto/encore/parser/meta/v1"
-	schema "encr.dev/proto/encore/parser/schema/v1"
+	metav1 "encr.dev/proto/afterpiece/parser/meta/v1"
+	schema "encr.dev/proto/afterpiece/parser/schema/v1"
 )
 
 func (m *Manager) registerAPITools() {
