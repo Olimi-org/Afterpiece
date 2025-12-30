@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "encr.dev/proto/encore/parser/schema/v1";
+option go_package = "encr.dev/proto/afterpiece/parser/schema/v1";
 
 package encore.parser.schema.v1;
 
@@ -253,6 +253,6 @@ enum Builtin {
 
   INT     = 18;
   UINT    = 19;
-  
+
   DECIMAL = 20;
 }

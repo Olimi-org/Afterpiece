@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "encr.dev/proto/encore/parser/meta/v1";
+option go_package = "encr.dev/proto/afterpiece/parser/meta/v1";
 
 package encore.parser.meta.v1;
 

@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/golang/protobuf/proto"
 	"github.com/rs/xid"
+	"google.golang.org/protobuf/proto"
 
 	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/builder"
@@ -21,7 +21,7 @@ import (
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/paths"
 	"encr.dev/pkg/supervisor"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type ImageSpecFile struct {
