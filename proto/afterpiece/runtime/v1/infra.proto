@@ -3,7 +3,7 @@ package encore.runtime.v1;
 
 import "encore/runtime/v1/secretdata.proto";
 
-option go_package = "encr.dev/proto/encore/runtime/v1;runtimev1";
+option go_package = "encr.dev/proto/afterpiece/runtime/v1;runtimev1";
 
 message Infrastructure {
   Resources resources = 1;

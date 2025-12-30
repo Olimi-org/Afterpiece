@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "encr.dev/proto/encore/engine/trace";
+option go_package = "encr.dev/proto/afterpiece/engine/trace";
 
 import "google/protobuf/timestamp.proto";
 

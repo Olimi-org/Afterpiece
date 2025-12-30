@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/gofrs/uuid"
+	"github.com/gofrs/uuid/v5"
 	"github.com/rs/zerolog/log"
 
 	"encore.dev/appruntime/exported/experiments"
@@ -41,7 +41,7 @@ import (
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/svcproxy"
 	"encr.dev/pkg/vcs"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 type RunAppData struct {

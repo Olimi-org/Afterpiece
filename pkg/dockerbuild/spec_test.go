@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
 
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/supervisor"
-	meta "encr.dev/proto/encore/parser/meta/v1"
+	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
 func TestBuild_Node(t *testing.T) {

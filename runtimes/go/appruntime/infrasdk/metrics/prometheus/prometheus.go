@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/proto"
 
 	"encore.dev/appruntime/exported/config"
 	"encore.dev/appruntime/infrasdk/metadata"
