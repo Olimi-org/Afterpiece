@@ -378,37 +378,6 @@ func (b *imageSpecBuilder) Describe(cfg DescribeConfig) (*ImageSpec, error) {
 		}
 	}
 
-	// If we have any JS outputs that need the local runtime, copy it into the image.
-	{
-		for _, out := range cfg.Compile.Outputs {
-			if _, ok := out.(*builder.JSBuildOutput); ok {
-				if nativeRuntimeHost, ok := cfg.NodeRuntime.Get(); ok {
-					// Add the encore-runtime.node file, and set the environment variable to point to it.
-					nativeRuntimeImg := ImagePath("/encore/runtimes/js/encore-runtime.node")
-					b.spec.CopyData[nativeRuntimeImg] = nativeRuntimeHost
-					b.spec.Env = append(b.spec.Env, fmt.Sprintf("ENCORE_RUNTIME_LIB=%s", nativeRuntimeImg))
-					b.addPrio(nativeRuntimeImg)
-
-					// Copy the encore.dev package.
-					nativePackageHost := cfg.Runtimes.Join("js", "encore.dev")
-					nativePackageImg := ImagePath("/encore/runtimes/js/encore.dev")
-					b.spec.CopyData[nativePackageImg] = nativePackageHost
-				} else {
-					// Copy the whole js runtime.
-					runtimeHost := cfg.Runtimes.Join("js")
-					runtimeImg := ImagePath("/encore/runtimes/js")
-					b.spec.CopyData[runtimeImg] = runtimeHost
-
-					nativeRuntimeImg := runtimeImg.Join("encore-runtime.node")
-					b.spec.Env = append(b.spec.Env, fmt.Sprintf("ENCORE_RUNTIME_LIB=%s", nativeRuntimeImg))
-					b.addPrio(nativeRuntimeImg)
-				}
-
-				break
-			}
-		}
-	}
-
 	b.spec.DockerBaseImage = cfg.DockerBaseImage.GetOrElse("scratch")
 	b.spec.BundleSource = cfg.BundleSource
 	b.spec.WorkingDir = cfg.WorkingDir.GetOrElse("/")

@@ -14,67 +14,6 @@ import (
 	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
 
-func TestBuild_Node(t *testing.T) {
-	c := qt.New(t)
-	cfg := DescribeConfig{
-		Meta:     &meta.Data{Language: meta.Lang_TYPESCRIPT},
-		Runtimes: "/host/runtimes",
-		BundleSource: option.Some(BundleSourceSpec{
-			Source:         "/host",
-			Dest:           "/image",
-			AppRootRelpath: ".",
-		}),
-		Compile: &builder.CompileResult{Outputs: []builder.BuildOutput{
-			&builder.JSBuildOutput{
-				ArtifactDir: "/host/artifacts",
-				Entrypoints: []builder.Entrypoint{{
-					Cmd: builder.CmdSpec{
-						Command:          builder.ArtifactStrings{"${ARTIFACT_DIR}/entrypoint"},
-						PrioritizedFiles: builder.ArtifactStrings{"${ARTIFACT_DIR}/entrypoint"},
-					},
-					Services: []string{"foo", "bar"},
-					Gateways: []string{"baz", "qux"},
-				}},
-			},
-		}},
-	}
-	spec, err := describe(cfg)
-	c.Assert(err, qt.IsNil)
-
-	meta, err := proto.Marshal(cfg.Meta)
-	c.Assert(err, qt.IsNil)
-
-	opts := append([]cmp.Option{cmpopts.EquateEmpty()}, option.CmpOpts()...)
-	c.Assert(spec, qt.CmpEquals(opts...), &ImageSpec{
-		Entrypoint: []string{"/image/artifacts/entrypoint"},
-		Env: []string{
-			"ENCORE_RUNTIME_LIB=/encore/runtimes/js/encore-runtime.node",
-		},
-		WorkingDir: "/",
-		BuildInfo:  BuildInfoSpec{InfoPath: defaultBuildInfoPath},
-		WriteFiles: map[ImagePath][]byte{defaultMetaPath: meta},
-		CopyData: map[ImagePath]HostPath{
-			"/encore/runtimes/js": "/host/runtimes/js",
-		},
-		BundleSource: option.Some(BundleSourceSpec{
-			Source:         "/host",
-			Dest:           "/image",
-			AppRootRelpath: ".",
-			ExcludeSource:  []RelPath{},
-			IncludeSource:  []RelPath{},
-		}),
-		Supervisor:      option.None[SupervisorSpec](),
-		BundledServices: []string{"bar", "foo"},
-		BundledGateways: []string{"baz", "qux"},
-		DockerBaseImage: "scratch",
-		FeatureFlags:    map[FeatureFlag]bool{NewRuntimeConfig: true},
-		StargzPrioritizedFiles: []ImagePath{
-			"/image/artifacts/entrypoint",
-			"/encore/runtimes/js/encore-runtime.node",
-		},
-	})
-}
-
 func TestBuild_Go_SingleBinary(t *testing.T) {
 	c := qt.New(t)
 	cfg := DescribeConfig{
