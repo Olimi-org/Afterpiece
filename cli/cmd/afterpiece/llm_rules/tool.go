@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"encr.dev/cli/cmd/encore/cmdutil"
+	"encr.dev/cli/cmd/afterpiece/cmdutil"
 	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
 )

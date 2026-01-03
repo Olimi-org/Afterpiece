@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"encr.dev/cli/cmd/encore/cmdutil"
+	"encr.dev/cli/cmd/afterpiece/cmdutil"
 	"encr.dev/internal/userconfig"
 	"encr.dev/pkg/appfile"
 	"github.com/charmbracelet/bubbles/list"

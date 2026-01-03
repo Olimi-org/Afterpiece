@@ -3,7 +3,7 @@ package llm_rules
 import (
 	"github.com/spf13/cobra"
 
-	"encr.dev/cli/cmd/encore/root"
+	"encr.dev/cli/cmd/afterpiece/root"
 )
 
 var llmRulesCmd = &cobra.Command{
