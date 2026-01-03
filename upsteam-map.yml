@@ -1,0 +1,20 @@
+renames:
+  "cli/cmd/encore/": "cli/cmd/afterpiece/"
+  "proto/encore/": "proto/afterpiece/"
+
+ignore:
+  - "tsparser/"
+  - "runtimes/js/"
+  - "runtimes/core/"
+  - "e2e-tests/testdata/tsapp/"
+  - "pkg/clientgen/testdata/tsapp/"
+  - "docs/"
+  - "README.md"
+
+ignore_ext:
+  - ".toml"
+  - ".rs"
+  - ".lock"
+
+behavior:
+  drop_empty_patches: true
