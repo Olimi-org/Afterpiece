@@ -6,6 +6,7 @@ toolchain go1.24.9
 
 require (
 	cloud.google.com/go/storage v1.43.0
+	modernc.org/sqlite v1.37.0
 	cuelang.org/go v0.4.3
 	encore.dev v1.1.0
 	github.com/agnivade/levenshtein v1.1.1
@@ -49,7 +50,6 @@ require (
 	github.com/knadh/koanf/providers/rawbytes v0.1.0
 	github.com/knadh/koanf/v2 v2.1.2
 	github.com/lib/pq v1.10.9
-	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/mattn/go-runewidth v0.0.15
 	github.com/modern-go/reflect2 v1.0.2
@@ -228,7 +228,6 @@ require (
 	modernc.org/libc v1.62.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.9.1 // indirect
-	modernc.org/sqlite v1.37.0
 	nhooyr.io/websocket v1.8.10 // indirect
 )
 
