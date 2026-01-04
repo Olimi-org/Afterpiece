@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/logrusorgru/aurora"
+	"github.com/logrusorgru/aurora/v3"
 	"github.com/tailscale/hujson"
 	"golang.org/x/exp/maps"
 
