@@ -23,15 +23,18 @@ func _() {
 	_ = x[AuthHandler-12]
 	_ = x[Middleware-13]
 	_ = x[ServiceStruct-14]
+	_ = x[Constant-15]
+	_ = x[Enum-16]
 }
 
-const _Kind_name = "UnknownPubSubTopicPubSubSubscriptionSQLDatabaseMetricCronJobCacheClusterCacheKeyspaceConfigLoadSecretsBucketAPIEndpointAuthHandlerMiddlewareServiceStruct"
+const _Kind_name = "UnknownPubSubTopicPubSubSubscriptionSQLDatabaseMetricCronJobCacheClusterCacheKeyspaceConfigLoadSecretsBucketAPIEndpointAuthHandlerMiddlewareServiceStructConstantEnum"
 
-var _Kind_index = [...]uint8{0, 7, 18, 36, 47, 53, 60, 72, 85, 95, 102, 108, 119, 130, 140, 153}
+var _Kind_index = [...]uint8{0, 7, 18, 36, 47, 53, 60, 72, 85, 95, 102, 108, 119, 130, 140, 153, 161, 165}
 
 func (i Kind) String() string {
-	if i < 0 || i >= Kind(len(_Kind_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Kind_index)-1 {
 		return "Kind(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Kind_name[_Kind_index[i]:_Kind_index[i+1]]
+	return _Kind_name[_Kind_index[idx]:_Kind_index[idx+1]]
 }

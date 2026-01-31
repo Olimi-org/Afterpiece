@@ -6,6 +6,7 @@ import (
 
 	"encr.dev/v2/parser/apis/api"
 	"encr.dev/v2/parser/apis/authhandler"
+	"encr.dev/v2/parser/apis/constant"
 	"encr.dev/v2/parser/apis/directive"
 	"encr.dev/v2/parser/apis/middleware"
 	"encr.dev/v2/parser/apis/servicestruct"
@@ -92,9 +93,7 @@ var Parser = &resourceparser.Parser{
 					}
 
 				case *ast.GenDecl:
-					if decl.Tok != token.TYPE {
-						continue
-					} else if decl.Doc == nil {
+					if decl.Doc == nil {
 						continue
 					}
 
@@ -107,6 +106,10 @@ var Parser = &resourceparser.Parser{
 
 					switch dir.Name {
 					case "service":
+						if decl.Tok != token.TYPE {
+							p.Errs.Add(errUnexpectedDirective(dir.Name).AtGoNode(decl))
+							continue
+						}
 						ss := servicestruct.Parse(servicestruct.ParseData{
 							Errs:   p.Errs,
 							Schema: p.SchemaParser,
@@ -119,6 +122,27 @@ var Parser = &resourceparser.Parser{
 						if ss != nil {
 							p.RegisterResource(ss)
 							p.AddNamedBind(file, ss.Decl.AST.Name, ss)
+						}
+
+					case "export":
+						if decl.Tok != token.CONST {
+							p.Errs.Add(errUnexpectedDirective(dir.Name).AtGoNode(decl))
+							continue
+						}
+						results := constant.Parse(constant.ParseData{
+							Errs:   p.Errs,
+							Schema: p.SchemaParser,
+							File:   file,
+							Decl:   decl,
+							Doc:    doc,
+						})
+
+						for _, res := range results {
+							if c, ok := res.(*constant.Constant); ok {
+								p.RegisterResource(c)
+							} else if e, ok := res.(*constant.Enum); ok {
+								p.RegisterResource(e)
+							}
 						}
 
 					default:
