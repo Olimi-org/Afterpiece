@@ -120,10 +120,20 @@ func Parse(d ParseData) (results []any) {
 	var constants []*Constant
 	var enums []*Enum
 
-	for _, spec := range d.Decl.Specs {
+	// Track lastType and lastTypeExpr for type inheritance across specs
+	var lastType schema.Type
+	var lastTypeExpr ast.Expr
+
+	for specIndex, spec := range d.Decl.Specs {
 		valueSpec, ok := spec.(*ast.ValueSpec)
 		if !ok {
 			continue
+		}
+
+		// Update inherited type if this spec has an explicit type
+		if valueSpec.Type != nil {
+			lastTypeExpr = valueSpec.Type
+			lastType = schemaType(valueSpec.Type)
 		}
 
 		for i, name := range valueSpec.Names {
@@ -132,12 +142,11 @@ func Parse(d ParseData) (results []any) {
 				continue
 			}
 
-			typ := schema.Type(nil)
-			if valueSpec.Type != nil {
-				typ = schemaType(valueSpec.Type)
-			}
+			// Use inherited type
+			typ := lastType
 
-			value := evaluateConstant(d.File, valueSpec.Values, i)
+			// Evaluate value with specIndex for correct iota handling
+			value := evaluateConstantWithSpecIndex(d.File, valueSpec.Values, i, specIndex, lastTypeExpr)
 
 			tokenFile := d.File.Token()
 			startPos := tokenFile.Position(name.Pos())
@@ -290,6 +299,128 @@ func evaluateConstant(file *pkginfo.File, values []ast.Expr, index int) Constant
 	return ConstantValue{}
 }
 
+// evaluateConstantWithSpecIndex evaluates a constant value using specIndex for iota.
+// It also handles cases where no value is provided (inherited from previous spec).
+func evaluateConstantWithSpecIndex(file *pkginfo.File, values []ast.Expr, valueIndex int, specIndex int, lastTypeExpr ast.Expr) ConstantValue {
+	var expr ast.Expr
+	if len(values) > valueIndex {
+		expr = values[valueIndex]
+	}
+
+	if expr == nil {
+		// No explicit value - for iota-based enums, return specIndex
+		// This handles cases like:
+		//   const (
+		//       A Status = iota  // specIndex=0
+		//       B                // specIndex=1, no value expr, should be 1
+		//   )
+		return ConstantValue{IntValue: int64(specIndex), Kind: ConstantInt}
+	}
+
+	return evaluateExprWithSpecIndex(file, expr, specIndex)
+}
+
+// evaluateExprWithSpecIndex recursively evaluates an expression using specIndex for iota
+func evaluateExprWithSpecIndex(file *pkginfo.File, expr ast.Expr, specIndex int) ConstantValue {
+	switch lit := expr.(type) {
+	case *ast.BasicLit:
+		if lit.Kind == token.STRING {
+			val, err := strconv.Unquote(lit.Value)
+			if err == nil {
+				return ConstantValue{StrValue: val, Kind: ConstantString}
+			}
+			return ConstantValue{StrValue: lit.Value[1 : len(lit.Value)-1], Kind: ConstantString}
+		} else if lit.Kind == token.INT {
+			val, err := strconv.ParseInt(lit.Value, 10, 64)
+			if err == nil {
+				return ConstantValue{IntValue: val, Kind: ConstantInt}
+			}
+		} else if lit.Kind == token.FLOAT {
+			val, err := strconv.ParseFloat(lit.Value, 64)
+			if err == nil {
+				return ConstantValue{FloatValue: val, Kind: ConstantFloat}
+			}
+		} else if lit.Kind == token.CHAR {
+			return ConstantValue{StrValue: lit.Value, Kind: ConstantString}
+		}
+
+	case *ast.Ident:
+		if lit.Name == "iota" {
+			return ConstantValue{IntValue: int64(specIndex), Kind: ConstantInt}
+		}
+		// Could be "true", "false", or another constant reference
+		if lit.Name == "true" {
+			return ConstantValue{BoolValue: true, Kind: ConstantBool}
+		}
+		if lit.Name == "false" {
+			return ConstantValue{BoolValue: false, Kind: ConstantBool}
+		}
+
+	case *ast.UnaryExpr:
+		if lit.Op == token.SUB {
+			val := evaluateExprWithSpecIndex(file, lit.X, specIndex)
+			if val.Kind == ConstantInt {
+				return ConstantValue{IntValue: -val.IntValue, Kind: ConstantInt}
+			} else if val.Kind == ConstantFloat {
+				return ConstantValue{FloatValue: -val.FloatValue, Kind: ConstantFloat}
+			}
+		}
+
+	case *ast.BinaryExpr:
+		left := evaluateExprWithSpecIndex(file, lit.X, specIndex)
+		right := evaluateExprWithSpecIndex(file, lit.Y, specIndex)
+
+		if left.Kind == ConstantInt && right.Kind == ConstantInt {
+			switch lit.Op {
+			case token.ADD:
+				return ConstantValue{IntValue: left.IntValue + right.IntValue, Kind: ConstantInt}
+			case token.SUB:
+				return ConstantValue{IntValue: left.IntValue - right.IntValue, Kind: ConstantInt}
+			case token.MUL:
+				return ConstantValue{IntValue: left.IntValue * right.IntValue, Kind: ConstantInt}
+			case token.QUO:
+				if right.IntValue != 0 {
+					return ConstantValue{IntValue: left.IntValue / right.IntValue, Kind: ConstantInt}
+				}
+			case token.REM:
+				if right.IntValue != 0 {
+					return ConstantValue{IntValue: left.IntValue % right.IntValue, Kind: ConstantInt}
+				}
+			case token.AND:
+				return ConstantValue{IntValue: left.IntValue & right.IntValue, Kind: ConstantInt}
+			case token.OR:
+				return ConstantValue{IntValue: left.IntValue | right.IntValue, Kind: ConstantInt}
+			case token.XOR:
+				return ConstantValue{IntValue: left.IntValue ^ right.IntValue, Kind: ConstantInt}
+			case token.SHL:
+				return ConstantValue{IntValue: left.IntValue << uint(right.IntValue), Kind: ConstantInt}
+			case token.SHR:
+				return ConstantValue{IntValue: left.IntValue >> uint(right.IntValue), Kind: ConstantInt}
+			}
+		}
+
+		if left.Kind == ConstantFloat && right.Kind == ConstantFloat {
+			switch lit.Op {
+			case token.ADD:
+				return ConstantValue{FloatValue: left.FloatValue + right.FloatValue, Kind: ConstantFloat}
+			case token.SUB:
+				return ConstantValue{FloatValue: left.FloatValue - right.FloatValue, Kind: ConstantFloat}
+			case token.MUL:
+				return ConstantValue{FloatValue: left.FloatValue * right.FloatValue, Kind: ConstantFloat}
+			case token.QUO:
+				return ConstantValue{FloatValue: left.FloatValue / right.FloatValue, Kind: ConstantFloat}
+			}
+		}
+
+	case *ast.CallExpr:
+		if fun, ok := lit.Fun.(*ast.Ident); ok && fun.Name == "len" {
+			return ConstantValue{IntValue: 0, Kind: ConstantInt}
+		}
+	}
+
+	return ConstantValue{}
+}
+
 // tryGroupAsEnum attempts to group constants as an enum
 // Returns an Enum if constants form an enum, nil otherwise
 func tryGroupAsEnum(constants []*Constant, pkgPath, pkgName, doc string) *Enum {
@@ -308,18 +439,34 @@ func tryGroupAsEnum(constants []*Constant, pkgPath, pkgName, doc string) *Enum {
 		}
 	}
 
-	enumName := constants[0].Name
-	if idx := len(constants[0].Name) - 1; idx > 0 && constants[0].Name[idx] >= '0' && constants[0].Name[idx] <= '9' {
-		prefix := constants[0].Name[:idx]
-		allSamePrefix := true
-		for _, c := range constants[1:] {
-			if len(c.Name) < idx || c.Name[:idx] != prefix {
-				allSamePrefix = false
-				break
+	// Extract enum name and doc from the type (for NamedType, use the type's name and doc)
+	enumName := ""
+	enumDoc := doc // Default to const block's doc
+	if namedType, ok := firstType.(schema.NamedType); ok {
+		// Get the type name and doc from the NamedType's declaration
+		if namedType.DeclInfo != nil {
+			enumName = namedType.DeclInfo.Name
+			if namedType.DeclInfo.Doc != "" {
+				enumDoc = namedType.DeclInfo.Doc
 			}
 		}
-		if allSamePrefix {
-			enumName = prefix
+	}
+
+	// Fallback: derive from constant name prefix
+	if enumName == "" {
+		enumName = constants[0].Name
+		if idx := len(constants[0].Name) - 1; idx > 0 && constants[0].Name[idx] >= '0' && constants[0].Name[idx] <= '9' {
+			prefix := constants[0].Name[:idx]
+			allSamePrefix := true
+			for _, c := range constants[1:] {
+				if len(c.Name) < idx || c.Name[:idx] != prefix {
+					allSamePrefix = false
+					break
+				}
+			}
+			if allSamePrefix {
+				enumName = prefix
+			}
 		}
 	}
 
@@ -330,7 +477,7 @@ func tryGroupAsEnum(constants []*Constant, pkgPath, pkgName, doc string) *Enum {
 		Name:           enumName,
 		UnderlyingType: firstType,
 		Members:        constants,
-		Doc:            doc,
+		Doc:            enumDoc,
 		Loc:            loc,
 		PkgName:        pkgName,
 		PkgPath:        pkgPath,

@@ -81,6 +81,8 @@ export interface ClientOptions {
 export namespace svc {
     export const APIVersion: string = "1.0.0";
 
+    export const DebugMode: boolean = false;
+
     export const DefaultPort: number = 8080;
 
     export const ErrorCodeInvalidInput: string = "INVALID_INPUT";
@@ -91,6 +93,9 @@ export namespace svc {
 
     export const MaxRetries: number = 3;
 
+    /**
+     * Priority represents importance level
+     */
     export enum Priority {
         PriorityLow = 0,
         PriorityMedium = 1,
@@ -105,6 +110,9 @@ export namespace svc {
         Status: Status
     }
 
+    /**
+     * Status is a user status
+     */
     export enum Status {
         StatusActive = 0,
         StatusInactive = 1,
@@ -113,8 +121,6 @@ export namespace svc {
     }
 
     export const TimeoutSeconds: number = 30;
-}
-
 
     export class ServiceClient {
         private baseClient: BaseClient

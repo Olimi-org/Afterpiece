@@ -3,6 +3,7 @@ package schema
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"reflect"
@@ -498,4 +499,97 @@ func newEagerNamedType(expr ast.Expr, typeArgs []Type, decl *TypeDecl) NamedType
 		TypeArgs: typeArgs,
 		decl:     lazy,
 	}
+}
+
+// ParseConstDecl parses a constant declaration from a package declaration.
+// It returns nil if the declaration is not a constant or cannot be parsed.
+// specIndex is the index of this spec within the const block (for iota evaluation).
+func (p *Parser) ParseConstDecl(d *pkginfo.PkgDeclInfo, specIndex int) *ConstDecl {
+	if d.Type != token.CONST {
+		return nil
+	}
+
+	spec, ok := d.Spec.(*ast.ValueSpec)
+	if !ok {
+		return nil
+	}
+
+	// Determine the type from the spec
+	var schemaType Type
+	if spec.Type != nil {
+		// Explicit type declaration
+		schemaType = p.ParseType(d.File, spec.Type)
+	} else if len(spec.Values) > 0 {
+		// Infer type from value
+		schemaType = p.inferConstType(spec.Values[0])
+	}
+
+	if schemaType == nil {
+		return nil
+	}
+
+	// Evaluate the constant value
+	var constVal constant.Value
+	if len(spec.Values) > 0 {
+		constVal = p.evaluateConstExpr(spec.Values[0], specIndex)
+	}
+
+	return &ConstDecl{
+		AST:   spec,
+		Info:  d,
+		File:  d.File,
+		Name:  d.Name,
+		Doc:   d.Doc,
+		Type:  schemaType,
+		Value: constVal,
+	}
+}
+
+// inferConstType infers the type of a constant from its value expression.
+func (p *Parser) inferConstType(expr ast.Expr) Type {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		switch e.Kind {
+		case token.STRING:
+			return BuiltinType{Kind: String}
+		case token.INT:
+			return BuiltinType{Kind: Int}
+		case token.FLOAT:
+			return BuiltinType{Kind: Float64}
+		}
+	case *ast.Ident:
+		if e.Name == "true" || e.Name == "false" {
+			return BuiltinType{Kind: Bool}
+		}
+		if e.Name == "iota" {
+			return BuiltinType{Kind: Int}
+		}
+	}
+	return nil
+}
+
+// evaluateConstExpr evaluates a constant expression to a constant.Value.
+func (p *Parser) evaluateConstExpr(expr ast.Expr, specIndex int) constant.Value {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		switch e.Kind {
+		case token.STRING:
+			return constant.MakeFromLiteral(e.Value, token.STRING, 0)
+		case token.INT:
+			return constant.MakeFromLiteral(e.Value, token.INT, 0)
+		case token.FLOAT:
+			return constant.MakeFromLiteral(e.Value, token.FLOAT, 0)
+		}
+	case *ast.Ident:
+		if e.Name == "true" {
+			return constant.MakeBool(true)
+		}
+		if e.Name == "false" {
+			return constant.MakeBool(false)
+		}
+		if e.Name == "iota" {
+			return constant.MakeInt64(int64(specIndex))
+		}
+	}
+	return nil
 }
