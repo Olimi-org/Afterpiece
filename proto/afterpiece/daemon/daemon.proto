@@ -4,7 +4,7 @@ option go_package = "encr.dev/proto/afterpiece/daemon";
 
 import "google/protobuf/empty.proto";
 
-package encore.daemon;
+package afterpiece.daemon;
 
 service Daemon {
   // Run runs the application.

@@ -4,7 +4,7 @@ option go_package = "encr.dev/proto/afterpiece/engine/trace2";
 
 import "google/protobuf/timestamp.proto";
 
-package encore.engine.trace2;
+package afterpiece.engine.trace2;
 
 // SpanSummary summarizes a span for display purposes.
 message SpanSummary {

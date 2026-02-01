@@ -4,7 +4,7 @@ option go_package = "encr.dev/proto/afterpiece/engine/trace";
 
 import "google/protobuf/timestamp.proto";
 
-package encore.engine.trace;
+package afterpiece.engine.trace;
 
 message TraceID {
   uint64 high = 1;

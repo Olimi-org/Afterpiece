@@ -2,7 +2,7 @@ syntax = "proto3";
 
 option go_package = "encr.dev/proto/afterpiece/parser/schema/v1";
 
-package encore.parser.schema.v1;
+package afterpiece.parser.schema.v1;
 
 // Type represents the base of our schema on which everything else is built on-top of. It has to be one, and only one,
 // thing from our list of meta types.
@@ -261,4 +261,31 @@ enum Builtin {
   UINT    = 19;
 
   DECIMAL = 20;
+}
+
+// ConstantDecl represents a single exported constant.
+message ConstantDecl {
+  string name        = 1; // Constant name
+  Type   type        = 2; // Type of constant
+  oneof  value {
+    string str_value     = 3; // For string constants
+    int64  int_value     = 4; // For integer constants
+    bool   bool_value    = 5; // For boolean constants
+    double float_value   = 6; // For float constants
+  }
+  string doc         = 7; // Documentation comment
+  Loc    loc         = 8; // Source location
+  string pkg_name    = 9; // Package name
+  string pkg_path    = 10; // Package import path
+}
+
+// EnumDecl represents a group of constants forming an enum (e.g., from iota).
+message EnumDecl {
+  string name            = 1; // Enum name (derived from first constant or directive)
+  Type   underlying_type  = 2; // The underlying type of all members
+  repeated ConstantDecl members = 3; // All enum members
+  string doc           = 4; // Documentation comment
+  Loc    loc           = 5; // Source location
+  string pkg_name      = 6; // Package name
+  string pkg_path      = 7; // Package import path
 }

@@ -1,8 +1,8 @@
 syntax = "proto3";
-package encore.runtime.v1;
+package afterpiece.runtime.v1;
 
-import "encore/runtime/v1/infra.proto";
-import "encore/runtime/v1/secretdata.proto";
+import "afterpiece/runtime/v1/infra.proto";
+import "afterpiece/runtime/v1/secretdata.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 

@@ -2,9 +2,9 @@ syntax = "proto3";
 
 option go_package = "encr.dev/proto/afterpiece/parser/meta/v1";
 
-package encore.parser.meta.v1;
+package afterpiece.parser.meta.v1;
 
-import "encore/parser/schema/v1/schema.proto";
+import "afterpiece/parser/schema/v1/schema.proto";
 
 // Data is the metadata associated with an app version.
 message Data {
@@ -25,6 +25,8 @@ message Data {
   repeated Gateway        gateways            = 15;
   Lang                    language            = 16;
   repeated Bucket         buckets             = 17;
+  repeated schema.v1.ConstantDecl constants   = 18; // All exported constants
+  repeated schema.v1.EnumDecl     enums      = 19; // All exported enum groups
 }
 
 // Lang describes the language an application is written in.
