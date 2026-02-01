@@ -3,13 +3,10 @@ package legacymeta
 import (
 	"cmp"
 	"fmt"
-	"go/ast"
 	"go/token"
 	gotoken "go/token"
 	"slices"
 	"sort"
-	"strconv"
-	"strings"
 
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/paths"
@@ -20,8 +17,10 @@ import (
 	"encr.dev/v2/internals/pkginfo"
 	"encr.dev/v2/internals/resourcepaths"
 	"encr.dev/v2/internals/schema"
+	"encr.dev/v2/parser"
 	"encr.dev/v2/parser/apis/api"
 	"encr.dev/v2/parser/apis/authhandler"
+	"encr.dev/v2/parser/apis/constant"
 	"encr.dev/v2/parser/apis/middleware"
 	"encr.dev/v2/parser/apis/servicestruct"
 	"encr.dev/v2/parser/infra/caches"
@@ -656,336 +655,88 @@ func zeroNil[T comparable](val T) *T {
 }
 
 func (b *builder) populateConstantsAndEnums() {
-	// First, identify potential enum types.
-	// These are exported types that are effectively integers or strings.
-	enumCandidates := make(map[pkginfo.QualifiedName]*pschema.EnumDecl)
+	// Get pre-parsed constants and enums from the parser result
+	constants := parser.Resources[*constant.Constant](b.app.Parse)
+	enums := parser.Resources[*constant.Enum](b.app.Parse)
 
-	for _, pkg := range b.app.Parse.AppPackages() {
-		for _, f := range pkg.Files {
-			for _, decl := range f.AST().Decls {
-				genDecl, ok := decl.(*ast.GenDecl)
-				if !ok || genDecl.Tok != token.TYPE {
-					continue
-				}
+	// Convert constants to proto format
+	for _, c := range constants {
+		constDecl := &pschema.ConstantDecl{
+			Name:    c.Name,
+			Doc:     c.Doc,
+			PkgName: c.PkgName,
+		}
 
-				for _, spec := range genDecl.Specs {
-					typeSpec := spec.(*ast.TypeSpec)
-
-					// Manually resolve AST type to check if it is Enum candidate
-					var underlyingType *pschema.Type
-					var isEnum bool
-
-					// We only look at simple identifiers for underlying type (e.g. "int", "string", "MyType")
-					if ident, ok := typeSpec.Type.(*ast.Ident); ok {
-						if k := builtinKind(ident.Name); k != schema.Invalid {
-							protoBuiltin := builtinType(k)
-							// Check if int or string
-							switch protoBuiltin {
-							case pschema.Builtin_INT, pschema.Builtin_INT8, pschema.Builtin_INT16, pschema.Builtin_INT32, pschema.Builtin_INT64,
-								pschema.Builtin_UINT, pschema.Builtin_UINT8, pschema.Builtin_UINT16, pschema.Builtin_UINT32, pschema.Builtin_UINT64,
-								pschema.Builtin_STRING:
-								isEnum = true
-								underlyingType = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: protoBuiltin}}
-							}
-						}
-					}
-
-					if isEnum {
-						// Create EnumDecl
-						enumDecl := &pschema.EnumDecl{
-							Name:           typeSpec.Name.Name,
-							Doc:            typeSpec.Doc.Text(),
-							UnderlyingType: underlyingType,
-							PkgName:        pkg.Name,
-							Members:        nil,
-						}
-						qn := pkginfo.Q(pkg.ImportPath, typeSpec.Name.Name)
-						enumCandidates[qn] = enumDecl
-					}
-				}
+		// Convert type (or infer from value if not specified)
+		if c.Type != nil {
+			constDecl.Type = b.schemaType(c.Type)
+		} else {
+			// Infer type from value
+			switch c.Value.Kind {
+			case constant.ConstantString:
+				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_STRING}}
+			case constant.ConstantInt:
+				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_INT}}
+			case constant.ConstantBool:
+				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_BOOL}}
+			case constant.ConstantFloat:
+				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_FLOAT64}}
 			}
 		}
+
+		// Convert value
+		switch c.Value.Kind {
+		case constant.ConstantString:
+			constDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: c.Value.StrValue}
+		case constant.ConstantInt:
+			constDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: c.Value.IntValue}
+		case constant.ConstantBool:
+			constDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: c.Value.BoolValue}
+		case constant.ConstantFloat:
+			constDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: int64(c.Value.FloatValue)}
+		}
+
+		if constDecl.Type != nil && constDecl.Value != nil {
+			b.md.Constants = append(b.md.Constants, constDecl)
+		}
 	}
 
-	// Now process constants
-	for _, pkg := range b.app.Parse.AppPackages() {
-		for _, f := range pkg.Files {
-			for _, decl := range f.AST().Decls {
-				genDecl, ok := decl.(*ast.GenDecl)
-				if !ok || genDecl.Tok != token.CONST {
-					continue
-				}
+	// Convert enums to proto format
+	for _, e := range enums {
+		enumDecl := &pschema.EnumDecl{
+			Name:    e.Name,
+			Doc:     e.Doc,
+			PkgName: e.PkgName,
+		}
 
-				// If the block is exported, all constants in it are exported.
-				blockExported := isEncoreExport(genDecl.Doc)
+		// Convert underlying type
+		if e.UnderlyingType != nil {
+			enumDecl.UnderlyingType = b.schemaType(e.UnderlyingType)
+		}
 
-				var lastVal ast.Expr
-				var lastType ast.Expr
+		// Convert members
+		for _, m := range e.Members {
+			memberDecl := &pschema.ConstantDecl{
+				Name: m.Name,
+				Doc:  m.Doc,
+			}
 
-				for i, spec := range genDecl.Specs {
-					valSpec := spec.(*ast.ValueSpec)
+			switch m.Value.Kind {
+			case constant.ConstantString:
+				memberDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: m.Value.StrValue}
+			case constant.ConstantInt:
+				memberDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: m.Value.IntValue}
+			case constant.ConstantBool:
+				memberDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: m.Value.BoolValue}
+			}
 
-					// Determine type
-					var typeExpr ast.Expr
-					if valSpec.Type != nil {
-						typeExpr = valSpec.Type
-						lastType = valSpec.Type
-					} else {
-						typeExpr = lastType
-					}
-
-					// Determine values
-					for j, name := range valSpec.Names {
-						doc := valSpec.Doc.Text()
-						if doc == "" {
-							doc = valSpec.Comment.Text()
-						}
-
-						isExported := blockExported || isEncoreExport(valSpec.Doc)
-
-						var valExpr ast.Expr
-						if len(valSpec.Values) > j {
-							valExpr = valSpec.Values[j]
-							lastVal = valExpr
-						} else {
-							// Repetition
-							valExpr = lastVal
-						}
-
-						// Evaluate value
-						valStr := b.evaluateConst(valExpr, i, j)
-
-						// Check if it belongs to an enum
-						var enumDecl *pschema.EnumDecl
-						if typeExpr != nil {
-							// We need to resolve the type name to QualifiedName
-							if ident, ok := typeExpr.(*ast.Ident); ok {
-								// Only handle local types for now as enums are usually in same package
-								qn := pkginfo.Q(pkg.ImportPath, ident.Name)
-								enumDecl = enumCandidates[qn]
-							}
-						}
-
-						if enumDecl != nil {
-							// Parse value based on underlying enum type
-							constDecl := &pschema.ConstantDecl{
-								Name: name.Name,
-								Doc:  doc,
-							}
-
-							switch t := enumDecl.UnderlyingType.Typ.(type) {
-							case *pschema.Type_Builtin:
-								if t.Builtin == pschema.Builtin_STRING {
-									constDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: strings.Trim(valStr, "\"")}
-								} else {
-									// Assume int
-									if v, err := parseInt(valStr); err == nil {
-										constDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: v}
-									}
-								}
-							}
-
-							if constDecl.Value != nil {
-								enumDecl.Members = append(enumDecl.Members, constDecl)
-							}
-						} else if isExported {
-							// Standalone constant
-							var schemaType *pschema.Type
-							constDecl := &pschema.ConstantDecl{
-								Name:    name.Name,
-								Doc:     doc,
-								PkgName: pkg.Name,
-							}
-
-							if typeExpr != nil {
-								if ident, ok := typeExpr.(*ast.Ident); ok {
-									// Check if it is a builtin
-									if k := builtinKind(ident.Name); k != schema.Invalid {
-										protoBuiltin := builtinType(k)
-										schemaType = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: protoBuiltin}}
-										constDecl.Type = schemaType
-
-										// Attempt to parse value
-										switch protoBuiltin {
-										case pschema.Builtin_STRING:
-											constDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: strings.Trim(valStr, "\"")}
-										case pschema.Builtin_BOOL:
-											constDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: valStr == "true"}
-										default:
-											// Integers
-											if v, err := parseInt(valStr); err == nil {
-												constDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: v}
-											}
-										}
-									}
-								}
-							} else {
-								// Infer from value
-								if _, ok := valExpr.(*ast.BasicLit); ok {
-									if strings.HasPrefix(valStr, "\"") {
-										schemaType = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_STRING}}
-										constDecl.Type = schemaType
-										constDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: strings.Trim(valStr, "\"")}
-									} else if valStr == "true" || valStr == "false" {
-										schemaType = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_BOOL}}
-										constDecl.Type = schemaType
-										constDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: valStr == "true"}
-									} else {
-										// Assume int
-										schemaType = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_INT}}
-										constDecl.Type = schemaType
-										if v, err := parseInt(valStr); err == nil {
-											constDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: v}
-										}
-									}
-								}
-							}
-
-							if constDecl.Type != nil && constDecl.Value != nil {
-								b.md.Constants = append(b.md.Constants, constDecl)
-							}
-						}
-					}
-				}
+			if memberDecl.Value != nil {
+				enumDecl.Members = append(enumDecl.Members, memberDecl)
 			}
 		}
-	}
 
-	// Add populated enums
-	var qns []pkginfo.QualifiedName
-	for qn := range enumCandidates {
-		qns = append(qns, qn)
-	}
-	sort.Slice(qns, func(i, j int) bool {
-		return qns[i].Name < qns[j].Name // Simple sort
-	})
-
-	for _, qn := range qns {
-		e := enumCandidates[qn]
-		if len(e.Members) > 0 {
-			b.md.Enums = append(b.md.Enums, e)
+		if len(enumDecl.Members) > 0 {
+			b.md.Enums = append(b.md.Enums, enumDecl)
 		}
 	}
-}
-
-func (b *builder) evaluateConst(expr ast.Expr, specIndex int, valIndex int) string {
-	// Simple evaluation
-	if expr == nil {
-		return ""
-	}
-
-	switch e := expr.(type) {
-	case *ast.BasicLit:
-		return e.Value
-	case *ast.Ident:
-		if e.Name == "iota" {
-			return fmt.Sprintf("%d", specIndex)
-		}
-		if e.Name == "true" || e.Name == "false" {
-			return e.Name
-		}
-		return e.Name
-	default:
-		return "" // Unknown
-	}
-}
-
-func isEncoreExport(doc *ast.CommentGroup) bool {
-	if doc == nil {
-		return false
-	}
-	for _, c := range doc.List {
-		if strings.HasPrefix(strings.TrimSpace(c.Text), "//encore:export") {
-			return true
-		}
-	}
-	return false
-}
-
-func builtinKind(name string) schema.BuiltinKind {
-	switch name {
-	case "bool":
-		return schema.Bool
-	case "int":
-		return schema.Int
-	case "int8":
-		return schema.Int8
-	case "int16":
-		return schema.Int16
-	case "int32":
-		return schema.Int32
-	case "int64":
-		return schema.Int64
-	case "uint":
-		return schema.Uint
-	case "uint8":
-		return schema.Uint8
-	case "uint16":
-		return schema.Uint16
-	case "uint32":
-		return schema.Uint32
-	case "uint64":
-		return schema.Uint64
-	case "float32":
-		return schema.Float32
-	case "float64":
-		return schema.Float64
-	case "string":
-		return schema.String
-	case "byte":
-		return schema.Uint8 // byte is alias for uint8
-	case "rune":
-		return schema.Int32 // rune is alias for int32
-	default:
-		return schema.Invalid
-	}
-}
-
-func builtinType(kind schema.BuiltinKind) pschema.Builtin {
-	switch kind {
-	case schema.Bool:
-		return pschema.Builtin_BOOL
-	case schema.Int:
-		return pschema.Builtin_INT
-	case schema.Int8:
-		return pschema.Builtin_INT8
-	case schema.Int16:
-		return pschema.Builtin_INT16
-	case schema.Int32:
-		return pschema.Builtin_INT32
-	case schema.Int64:
-		return pschema.Builtin_INT64
-	case schema.Uint:
-		return pschema.Builtin_UINT
-	case schema.Uint8:
-		return pschema.Builtin_UINT8
-	case schema.Uint16:
-		return pschema.Builtin_UINT16
-	case schema.Uint32:
-		return pschema.Builtin_UINT32
-	case schema.Uint64:
-		return pschema.Builtin_UINT64
-	case schema.Float32:
-		return pschema.Builtin_FLOAT32
-	case schema.Float64:
-		return pschema.Builtin_FLOAT64
-	case schema.String:
-		return pschema.Builtin_STRING
-	case schema.Bytes:
-		return pschema.Builtin_BYTES
-	case schema.Time:
-		return pschema.Builtin_TIME
-	case schema.UUID:
-		return pschema.Builtin_UUID
-	case schema.JSON:
-		return pschema.Builtin_JSON
-	case schema.UserID:
-		return pschema.Builtin_USER_ID
-	default:
-		panic(fmt.Sprintf("unknown builtin type %v", kind))
-	}
-}
-
-func parseInt(s string) (int64, error) {
-	return strconv.ParseInt(s, 0, 64)
 }
