@@ -55,6 +55,10 @@ func (p *Parser) RuntimeModule() *pkginfo.Module {
 	return p.loader.RuntimeModule()
 }
 
+func (p *Parser) SchemaParser() *schema.Parser {
+	return p.schemaParser
+}
+
 // Parse parses the given application for uses of the Encore API Framework
 // and the Encore infrastructure SDK.
 func (p *Parser) Parse() *Result {

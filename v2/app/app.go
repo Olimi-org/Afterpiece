@@ -7,6 +7,7 @@ import (
 	"encr.dev/v2/internals/parsectx"
 	"encr.dev/v2/internals/perr"
 	"encr.dev/v2/internals/pkginfo"
+	"encr.dev/v2/internals/schema"
 	"encr.dev/v2/parser"
 	"encr.dev/v2/parser/apis/api"
 	"encr.dev/v2/parser/apis/middleware"
@@ -18,11 +19,12 @@ import (
 type Desc struct {
 	Errs *perr.List
 
-	BuildInfo  parsectx.BuildInfo
-	MainModule *pkginfo.Module
-	Parse      *parser.Result
-	Services   []*Service
-	Gateways   []*Gateway
+	BuildInfo    parsectx.BuildInfo
+	MainModule   *pkginfo.Module
+	SchemaParser *schema.Parser
+	Parse        *parser.Result
+	Services     []*Service
+	Gateways     []*Gateway
 
 	// Framework describes API Framework-specific application-global data.
 	Framework option.Option[*apiframework.AppDesc]
@@ -77,7 +79,7 @@ func (d *Desc) MatchingGlobalMiddleware(ep *api.Endpoint) []*middleware.Middlewa
 
 // ValidateAndDescribe validates the application and computes the
 // application description.
-func ValidateAndDescribe(pc *parsectx.Context, result *parser.Result) *Desc {
+func ValidateAndDescribe(pc *parsectx.Context, schemaParser *schema.Parser, result *parser.Result) *Desc {
 	defer pc.Trace("app.ValidateAndDescribe").Done()
 
 	// First we want to discover the service layout
@@ -94,6 +96,7 @@ func ValidateAndDescribe(pc *parsectx.Context, result *parser.Result) *Desc {
 		Errs:                         pc.Errs,
 		BuildInfo:                    pc.Build,
 		MainModule:                   result.MainModule(),
+		SchemaParser:                 schemaParser,
 		Parse:                        result,
 		Services:                     services,
 		Gateways:                     gateways,

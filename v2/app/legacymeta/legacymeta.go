@@ -3,6 +3,7 @@ package legacymeta
 import (
 	"cmp"
 	"fmt"
+	"go/ast"
 	"go/token"
 	gotoken "go/token"
 	"slices"
@@ -39,15 +40,17 @@ type builder struct {
 	app  *app.Desc
 	md   *meta.Data // metadata being generated
 
-	decls map[declKey]uint32
-	nodes *TraceNodes
+	decls          map[declKey]uint32
+	usedNamedTypes map[pkginfo.QualifiedName]bool // Track types used in exported schemas
+	nodes          *TraceNodes
 }
 
 func Compute(errs *perr.List, appDesc *app.Desc) (*meta.Data, *TraceNodes) {
 	b := &builder{
-		errs:  errs,
-		app:   appDesc,
-		decls: make(map[declKey]uint32),
+		errs:           errs,
+		app:            appDesc,
+		decls:          make(map[declKey]uint32),
+		usedNamedTypes: make(map[pkginfo.QualifiedName]bool),
 	}
 	b.nodes = newTraceNodes(b)
 
@@ -655,12 +658,18 @@ func zeroNil[T comparable](val T) *T {
 }
 
 func (b *builder) populateConstantsAndEnums() {
-	// Get pre-parsed constants and enums from the parser result
-	constants := parser.Resources[*constant.Constant](b.app.Parse)
-	enums := parser.Resources[*constant.Enum](b.app.Parse)
+	// Get explicitly exported constants and enums (with //encore:export)
+	explicitConstants := parser.Resources[*constant.Constant](b.app.Parse)
+	explicitEnums := parser.Resources[*constant.Enum](b.app.Parse)
 
-	// Convert constants to proto format
-	for _, c := range constants {
+	// Collect all potential enums from the app (even without //encore:export)
+	allEnums := b.collectAllEnumTypes()
+
+	// Track which enums we've already exported to avoid duplicates
+	exportedEnums := make(map[pkginfo.QualifiedName]bool)
+
+	// Convert explicit constants to proto format
+	for _, c := range explicitConstants {
 		constDecl := &pschema.ConstantDecl{
 			Name:    c.Name,
 			Doc:     c.Doc,
@@ -701,42 +710,108 @@ func (b *builder) populateConstantsAndEnums() {
 		}
 	}
 
-	// Convert enums to proto format
-	for _, e := range enums {
-		enumDecl := &pschema.EnumDecl{
-			Name:    e.Name,
-			Doc:     e.Doc,
-			PkgName: e.PkgName,
+	// Convert explicitly exported enums to proto format
+	for _, e := range explicitEnums {
+		qn := pkginfo.Q(paths.Pkg(e.PkgPath), e.Name)
+		exportedEnums[qn] = true
+		b.addEnumToMeta(e)
+	}
+
+	// Auto-export enums that are used in exported types (usedNamedTypes)
+	// but not already explicitly exported
+	for qn := range b.usedNamedTypes {
+		if exportedEnums[qn] {
+			continue // Already exported explicitly
 		}
-
-		// Convert underlying type
-		if e.UnderlyingType != nil {
-			enumDecl.UnderlyingType = b.schemaType(e.UnderlyingType)
-		}
-
-		// Convert members
-		for _, m := range e.Members {
-			memberDecl := &pschema.ConstantDecl{
-				Name: m.Name,
-				Doc:  m.Doc,
-			}
-
-			switch m.Value.Kind {
-			case constant.ConstantString:
-				memberDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: m.Value.StrValue}
-			case constant.ConstantInt:
-				memberDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: m.Value.IntValue}
-			case constant.ConstantBool:
-				memberDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: m.Value.BoolValue}
-			}
-
-			if memberDecl.Value != nil {
-				enumDecl.Members = append(enumDecl.Members, memberDecl)
-			}
-		}
-
-		if len(enumDecl.Members) > 0 {
-			b.md.Enums = append(b.md.Enums, enumDecl)
+		if enum, ok := allEnums[qn]; ok {
+			exportedEnums[qn] = true
+			b.addEnumToMeta(enum)
 		}
 	}
+}
+
+// addEnumToMeta converts a constant.Enum to proto format and adds to metadata
+func (b *builder) addEnumToMeta(e *constant.Enum) {
+	enumDecl := &pschema.EnumDecl{
+		Name:    e.Name,
+		Doc:     e.Doc,
+		PkgName: e.PkgName,
+	}
+
+	// Convert underlying type
+	if e.UnderlyingType != nil {
+		enumDecl.UnderlyingType = b.schemaType(e.UnderlyingType)
+	}
+
+	// Convert members
+	for _, m := range e.Members {
+		memberDecl := &pschema.ConstantDecl{
+			Name: m.Name,
+			Doc:  m.Doc,
+		}
+
+		switch m.Value.Kind {
+		case constant.ConstantString:
+			memberDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: m.Value.StrValue}
+		case constant.ConstantInt:
+			memberDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: m.Value.IntValue}
+		case constant.ConstantBool:
+			memberDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: m.Value.BoolValue}
+		}
+
+		if memberDecl.Value != nil {
+			enumDecl.Members = append(enumDecl.Members, memberDecl)
+		}
+	}
+
+	if len(enumDecl.Members) > 0 {
+		b.md.Enums = append(b.md.Enums, enumDecl)
+	}
+}
+
+// collectAllEnumTypes discovers enum types that should be auto-exported.
+// It parses const blocks to find enums whose types are referenced in usedNamedTypes.
+func (b *builder) collectAllEnumTypes() map[pkginfo.QualifiedName]*constant.Enum {
+	result := make(map[pkginfo.QualifiedName]*constant.Enum)
+
+	// First, include all explicitly exported enums (those with //encore:export)
+	for _, enum := range parser.Resources[*constant.Enum](b.app.Parse) {
+		qn := pkginfo.Q(paths.Pkg(enum.PkgPath), enum.Name)
+		result[qn] = enum
+	}
+
+	// Now find and parse enum candidates that are used as dependencies
+	for _, pkg := range b.app.Parse.AppPackages() {
+		for _, file := range pkg.Files {
+			for _, decl := range file.AST().Decls {
+				genDecl, ok := decl.(*ast.GenDecl)
+				if !ok || genDecl.Tok != token.CONST {
+					continue
+				}
+
+				// Parse this const block without requiring //encore:export
+				resources := constant.ParseWithoutDirective(constant.ParseData{
+					Schema: b.app.SchemaParser,
+					Errs:   b.errs,
+					File:   file,
+					Decl:   genDecl,
+					Doc:    "", // Doc will be extracted from type declaration
+				})
+
+				// Add enums that are used as dependencies
+				for _, res := range resources {
+					if enum, ok := res.(*constant.Enum); ok {
+						qn := pkginfo.Q(paths.Pkg(enum.PkgPath), enum.Name)
+
+						// Only include if used as a dependency or already explicitly exported
+						if _, alreadyIncluded := result[qn]; !alreadyIncluded && b.usedNamedTypes[qn] {
+							result[qn] = enum
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return result
 }

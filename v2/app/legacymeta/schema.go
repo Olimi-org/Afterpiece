@@ -76,6 +76,10 @@ func (b *builder) schemaType(typ schemav2.Type) *schema.Type {
 		if typ.DeclInfo.File.Pkg.ImportPath == "encore.dev/config" {
 			return b.configValue(typ)
 		}
+		// Track this type as used in an exported schema
+		qn := pkginfo.Q(typ.DeclInfo.File.Pkg.ImportPath, typ.DeclInfo.Name)
+		b.usedNamedTypes[qn] = true
+
 		return &schema.Type{Typ: &schema.Type_Named{
 			Named: &schema.Named{
 				Id:            b.decl(typ.Decl()),
