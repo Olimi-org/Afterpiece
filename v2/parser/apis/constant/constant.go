@@ -51,7 +51,7 @@ type Constant struct {
 	Type    schema.Type
 	Value   ConstantValue
 	Doc     string
-	Loc     v1schema.Loc
+	Loc     *v1schema.Loc
 	PkgName string
 	PkgPath string
 }
@@ -76,7 +76,7 @@ type Enum struct {
 	UnderlyingType schema.Type
 	Members        []*Constant
 	Doc            string
-	Loc            v1schema.Loc
+	Loc            *v1schema.Loc
 	PkgName        string
 	PkgPath        string
 }
@@ -169,7 +169,7 @@ func Parse(d ParseData) (results []any) {
 				Type:    typ,
 				Value:   value,
 				Doc:     d.Doc,
-				Loc:     loc,
+				Loc:     &loc,
 				PkgName: d.File.Pkg.Name,
 				PkgPath: d.File.Pkg.ImportPath.String(),
 			}
@@ -261,7 +261,7 @@ func ParseWithoutDirective(d ParseData) (results []any) {
 				Type:    typ,
 				Value:   value,
 				Doc:     d.Doc,
-				Loc:     loc,
+				Loc:     &loc,
 				PkgName: d.File.Pkg.Name,
 				PkgPath: d.File.Pkg.ImportPath.String(),
 			}
@@ -313,23 +313,24 @@ func evaluateConstantWithSpecIndex(file *pkginfo.File, values []ast.Expr, valueI
 func evaluateExprWithSpecIndex(file *pkginfo.File, expr ast.Expr, specIndex int) ConstantValue {
 	switch lit := expr.(type) {
 	case *ast.BasicLit:
-		if lit.Kind == token.STRING {
+		switch lit.Kind {
+		case token.STRING:
 			val, err := strconv.Unquote(lit.Value)
 			if err == nil {
 				return ConstantValue{StrValue: val, Kind: ConstantString}
 			}
 			return ConstantValue{StrValue: lit.Value[1 : len(lit.Value)-1], Kind: ConstantString}
-		} else if lit.Kind == token.INT {
+		case token.INT:
 			val, err := strconv.ParseInt(lit.Value, 10, 64)
 			if err == nil {
 				return ConstantValue{IntValue: val, Kind: ConstantInt}
 			}
-		} else if lit.Kind == token.FLOAT {
+		case token.FLOAT:
 			val, err := strconv.ParseFloat(lit.Value, 64)
 			if err == nil {
 				return ConstantValue{FloatValue: val, Kind: ConstantFloat}
 			}
-		} else if lit.Kind == token.CHAR {
+		case token.CHAR:
 			return ConstantValue{StrValue: lit.Value, Kind: ConstantString}
 		}
 
@@ -348,10 +349,15 @@ func evaluateExprWithSpecIndex(file *pkginfo.File, expr ast.Expr, specIndex int)
 	case *ast.UnaryExpr:
 		if lit.Op == token.SUB {
 			val := evaluateExprWithSpecIndex(file, lit.X, specIndex)
-			if val.Kind == ConstantInt {
+			switch val.Kind {
+			case ConstantInt:
 				return ConstantValue{IntValue: -val.IntValue, Kind: ConstantInt}
-			} else if val.Kind == ConstantFloat {
+			case ConstantFloat:
 				return ConstantValue{FloatValue: -val.FloatValue, Kind: ConstantFloat}
+			case ConstantString:
+				return ConstantValue{StrValue: "-" + val.StrValue, Kind: ConstantString}
+			case ConstantBool:
+				return ConstantValue{BoolValue: !val.BoolValue, Kind: ConstantBool}
 			}
 		}
 

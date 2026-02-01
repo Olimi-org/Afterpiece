@@ -42,6 +42,7 @@ type builder struct {
 
 	decls          map[declKey]uint32
 	usedNamedTypes map[pkginfo.QualifiedName]bool // Track types used in exported schemas
+	exportedEnums  map[pkginfo.QualifiedName]bool // Track which enums have been exported
 	nodes          *TraceNodes
 }
 
@@ -51,6 +52,7 @@ func Compute(errs *perr.List, appDesc *app.Desc) (*meta.Data, *TraceNodes) {
 		app:            appDesc,
 		decls:          make(map[declKey]uint32),
 		usedNamedTypes: make(map[pkginfo.QualifiedName]bool),
+		exportedEnums:  make(map[pkginfo.QualifiedName]bool),
 	}
 	b.nodes = newTraceNodes(b)
 
@@ -425,6 +427,12 @@ func (b *builder) Build() *meta.Data {
 
 			md.Metrics = append(md.Metrics, m)
 
+		case *constant.Enum:
+			// Handle explicitly exported enums (those with //encore:export)
+			qn := pkginfo.Q(paths.Pkg(r.PkgPath), r.Name)
+			b.addEnumToMeta(r)
+			b.exportedEnums[qn] = true
+
 		case *config.Load:
 			if svc, ok := b.app.ServiceForPath(r.File.Pkg.FSPath); ok {
 				if metaSvc, ok := svcByName[svc.Name]; ok {
@@ -658,15 +666,9 @@ func zeroNil[T comparable](val T) *T {
 }
 
 func (b *builder) populateConstantsAndEnums() {
-	// Get explicitly exported constants and enums (with //encore:export)
 	explicitConstants := parser.Resources[*constant.Constant](b.app.Parse)
-	explicitEnums := parser.Resources[*constant.Enum](b.app.Parse)
-
 	// Collect all potential enums from the app (even without //encore:export)
 	allEnums := b.collectAllEnumTypes()
-
-	// Track which enums we've already exported to avoid duplicates
-	exportedEnums := make(map[pkginfo.QualifiedName]bool)
 
 	// Convert explicit constants to proto format
 	for _, c := range explicitConstants {
@@ -710,21 +712,12 @@ func (b *builder) populateConstantsAndEnums() {
 		}
 	}
 
-	// Convert explicitly exported enums to proto format
-	for _, e := range explicitEnums {
-		qn := pkginfo.Q(paths.Pkg(e.PkgPath), e.Name)
-		exportedEnums[qn] = true
-		b.addEnumToMeta(e)
-	}
-
-	// Auto-export enums that are used in exported types (usedNamedTypes)
-	// but not already explicitly exported
 	for qn := range b.usedNamedTypes {
-		if exportedEnums[qn] {
-			continue // Already exported explicitly
+		if b.exportedEnums[qn] {
+			continue // Already exported explicitly in resource loop
 		}
 		if enum, ok := allEnums[qn]; ok {
-			exportedEnums[qn] = true
+			b.exportedEnums[qn] = true
 			b.addEnumToMeta(enum)
 		}
 	}
