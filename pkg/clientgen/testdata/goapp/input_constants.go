@@ -46,7 +46,6 @@ const TimeoutSeconds = 30
 // Status is a user status
 type Status int
 
-//encore:export
 const (
 	StatusActive Status = iota
 	StatusInactive

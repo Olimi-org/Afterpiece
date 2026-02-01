@@ -151,7 +151,7 @@ func parse(ts *testscript.TestScript, neg bool, args []string) {
 	parseResult := p.Parse()
 
 	// ValidateAndDescribe the testscript
-	desc := ValidateAndDescribe(tc.Context, parseResult)
+	desc := ValidateAndDescribe(tc.Context, p.SchemaParser(), parseResult)
 
 	// If we're expecting parse errors, assert that we have them
 	if neg {

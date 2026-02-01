@@ -196,107 +196,96 @@ func Parse(d ParseData) (results []any) {
 	return results
 }
 
-// evaluateConstant evaluates to value of a constant declaration
-func evaluateConstant(file *pkginfo.File, values []ast.Expr, index int) ConstantValue {
-	if len(values) <= index {
-		return ConstantValue{}
+// ParseWithoutDirective processes const declarations without requiring //encore:export directive.
+// This is used for auto-exporting enums that are dependencies of exported types.
+func ParseWithoutDirective(d ParseData) (results []any) {
+	if d.Decl.Tok != token.CONST {
+		return nil
 	}
 
-	expr := values[index]
-	if expr == nil {
-		return ConstantValue{}
+	schemaType := func(expr ast.Expr) schema.Type {
+		if d.Schema != nil {
+			return d.Schema.ParseType(d.File, expr)
+		}
+		return nil
 	}
 
-	switch lit := expr.(type) {
-	case *ast.BasicLit:
-		if lit.Kind == token.STRING {
-			val, err := strconv.Unquote(lit.Value)
-			if err == nil {
-				return ConstantValue{StrValue: val, Kind: ConstantString}
-			}
-			return ConstantValue{StrValue: lit.Value[1 : len(lit.Value)-1], Kind: ConstantString}
-		} else if lit.Kind == token.INT {
-			val, err := strconv.ParseInt(lit.Value, 10, 64)
-			if err == nil {
-				return ConstantValue{IntValue: val, Kind: ConstantInt}
-			}
-		} else if lit.Kind == token.FLOAT {
-			val, err := strconv.ParseFloat(lit.Value, 64)
-			if err == nil {
-				return ConstantValue{FloatValue: val, Kind: ConstantFloat}
-			}
-		} else if lit.Kind == token.CHAR {
-			return ConstantValue{StrValue: lit.Value, Kind: ConstantString}
+	var constants []*Constant
+	var enums []*Enum
+
+	// Track lastType and lastTypeExpr for type inheritance across specs
+	var lastType schema.Type
+	var lastTypeExpr ast.Expr
+
+	for specIndex, spec := range d.Decl.Specs {
+		valueSpec, ok := spec.(*ast.ValueSpec)
+		if !ok {
+			continue
 		}
 
-	case *ast.Ident:
-		if lit.Name == "iota" {
-			return ConstantValue{IntValue: int64(index), Kind: ConstantInt}
+		// Update inherited type if this spec has an explicit type
+		if valueSpec.Type != nil {
+			lastTypeExpr = valueSpec.Type
+			lastType = schemaType(valueSpec.Type)
 		}
 
-	case *ast.UnaryExpr:
-		if lit.Op == token.SUB {
-			val := evaluateConstant(file, []ast.Expr{lit.X}, 0)
-			if val.Kind == ConstantInt {
-				return ConstantValue{IntValue: -val.IntValue, Kind: ConstantInt}
-			} else if val.Kind == ConstantFloat {
-				return ConstantValue{FloatValue: -val.FloatValue, Kind: ConstantFloat}
+		for i, name := range valueSpec.Names {
+			if !name.IsExported() {
+				continue // Skip unexported, don't error
 			}
-		}
 
-	case *ast.BinaryExpr:
-		left := evaluateConstant(file, []ast.Expr{lit.X}, 0)
-		right := evaluateConstant(file, []ast.Expr{lit.Y}, 0)
+			// Use inherited type
+			typ := lastType
 
-		if left.Kind == ConstantInt && right.Kind == ConstantInt {
-			switch lit.Op {
-			case token.ADD:
-				return ConstantValue{IntValue: left.IntValue + right.IntValue, Kind: ConstantInt}
-			case token.SUB:
-				return ConstantValue{IntValue: left.IntValue - right.IntValue, Kind: ConstantInt}
-			case token.MUL:
-				return ConstantValue{IntValue: left.IntValue * right.IntValue, Kind: ConstantInt}
-			case token.QUO:
-				if right.IntValue != 0 {
-					return ConstantValue{IntValue: left.IntValue / right.IntValue, Kind: ConstantInt}
-				}
-			case token.REM:
-				if right.IntValue != 0 {
-					return ConstantValue{IntValue: left.IntValue % right.IntValue, Kind: ConstantInt}
-				}
-			case token.AND:
-				return ConstantValue{IntValue: left.IntValue & right.IntValue, Kind: ConstantInt}
-			case token.OR:
-				return ConstantValue{IntValue: left.IntValue | right.IntValue, Kind: ConstantInt}
-			case token.XOR:
-				return ConstantValue{IntValue: left.IntValue ^ right.IntValue, Kind: ConstantInt}
-			case token.SHL:
-				return ConstantValue{IntValue: left.IntValue << uint(right.IntValue), Kind: ConstantInt}
-			case token.SHR:
-				return ConstantValue{IntValue: left.IntValue >> uint(right.IntValue), Kind: ConstantInt}
+			// Evaluate value with specIndex for correct iota handling
+			value := evaluateConstantWithSpecIndex(d.File, valueSpec.Values, i, specIndex, lastTypeExpr)
+
+			tokenFile := d.File.Token()
+			startPos := tokenFile.Position(name.Pos())
+			endPos := tokenFile.Position(name.End())
+
+			loc := v1schema.Loc{
+				PkgPath:      d.File.Pkg.ImportPath.String(),
+				PkgName:      d.File.Pkg.Name,
+				Filename:     d.File.Name,
+				StartPos:     int32(name.Pos()),
+				EndPos:       int32(name.End()),
+				SrcLineStart: int32(startPos.Line),
+				SrcLineEnd:   int32(endPos.Line),
+				SrcColStart:  int32(startPos.Column),
+				SrcColEnd:    int32(endPos.Column),
 			}
-		}
 
-		if left.Kind == ConstantFloat && right.Kind == ConstantFloat {
-			switch lit.Op {
-			case token.ADD:
-				return ConstantValue{FloatValue: left.FloatValue + right.FloatValue, Kind: ConstantFloat}
-			case token.SUB:
-				return ConstantValue{FloatValue: left.FloatValue - right.FloatValue, Kind: ConstantFloat}
-			case token.MUL:
-				return ConstantValue{FloatValue: left.FloatValue * right.FloatValue, Kind: ConstantFloat}
-			case token.QUO:
-				return ConstantValue{FloatValue: left.FloatValue / right.FloatValue, Kind: ConstantFloat}
+			c := &Constant{
+				Name:    name.Name,
+				Type:    typ,
+				Value:   value,
+				Doc:     d.Doc,
+				Loc:     loc,
+				PkgName: d.File.Pkg.Name,
+				PkgPath: d.File.Pkg.ImportPath.String(),
 			}
-		}
-
-	case *ast.CallExpr:
-		if fun, ok := lit.Fun.(*ast.Ident); ok && fun.Name == "len" {
-			return ConstantValue{IntValue: 0, Kind: ConstantInt}
+			constants = append(constants, c)
 		}
 	}
 
-	return ConstantValue{}
+	if len(constants) == 0 {
+		return nil
+	}
+
+	if e := tryGroupAsEnum(constants, d.File.Pkg.ImportPath.String(), d.File.Pkg.Name, d.Doc); e != nil {
+		enums = append(enums, e)
+	} else {
+		for _, c := range constants {
+			results = append(results, c)
+		}
+	}
+
+	for _, e := range enums {
+		results = append(results, e)
+	}
+
+	return results
 }
 
 // evaluateConstantWithSpecIndex evaluates a constant value using specIndex for iota.

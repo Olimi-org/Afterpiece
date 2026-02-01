@@ -47,8 +47,9 @@ func TestCodeGen_TestMain(t *testing.T) {
 			tc.FailTestOnErrors()
 			defer tc.FailTestOnBailout()
 
-			result := parser.NewParser(tc.Context).Parse()
-			desc := app.ValidateAndDescribe(tc.Context, result)
+			p := parser.NewParser(tc.Context)
+			result := p.Parse()
+			desc := app.ValidateAndDescribe(tc.Context, p.SchemaParser(), result)
 			gen := NewGenerator(desc)
 
 			for _, svc := range desc.Services {

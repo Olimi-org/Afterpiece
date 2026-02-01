@@ -92,7 +92,7 @@ func (*BuilderImpl) Parse(ctx context.Context, p builder.ParseParams) (*builder.
 
 		parser := parser.NewParser(pc)
 		parserResult := parser.Parse()
-		appDesc := app.ValidateAndDescribe(pc, parserResult)
+		appDesc := app.ValidateAndDescribe(pc, parser.SchemaParser(), parserResult)
 		meta, traceNodes := legacymeta.Compute(pc.Errs, appDesc)
 		mainModule := parser.MainModule()
 		runtimeModule := parser.RuntimeModule()
