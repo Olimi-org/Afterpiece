@@ -3,6 +3,7 @@ package legacymeta
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/idents"
@@ -11,6 +12,8 @@ import (
 	"encr.dev/v2/internals/pkginfo"
 	schemav2 "encr.dev/v2/internals/schema"
 	"encr.dev/v2/internals/schema/schemautil"
+	"encr.dev/v2/parser"
+	"encr.dev/v2/parser/apis/constant"
 	"github.com/fatih/structtag"
 )
 
@@ -401,4 +404,140 @@ func (b *builder) typeDeclRef(typ *schemav2.TypeDeclRef) *schema.Type {
 
 func (b *builder) typeDeclRefUnwrapPointer(typ *schemav2.TypeDeclRef) *schema.Type {
 	return b.schemaTypeUnwrapPointer(typ.ToType())
+}
+
+// addEnumToMeta converts a constant.Enum to proto format and adds to metadata
+func (b *builder) addEnumToMeta(e *constant.Enum) {
+	enumDecl := &schema.EnumDecl{
+		Name:    e.Name,
+		Doc:     e.Doc,
+		PkgName: e.PkgName,
+	}
+
+	// Convert underlying type
+	if e.UnderlyingType != nil {
+		enumDecl.UnderlyingType = b.schemaType(e.UnderlyingType)
+	}
+
+	// Convert members
+	for _, m := range e.Members {
+		memberDecl := &schema.ConstantDecl{
+			Name: m.Name,
+			Doc:  m.Doc,
+		}
+
+		switch m.Value.Kind {
+		case constant.ConstantString:
+			memberDecl.Value = &schema.ConstantDecl_StrValue{StrValue: m.Value.StrValue}
+		case constant.ConstantInt:
+			memberDecl.Value = &schema.ConstantDecl_IntValue{IntValue: m.Value.IntValue}
+		case constant.ConstantBool:
+			memberDecl.Value = &schema.ConstantDecl_BoolValue{BoolValue: m.Value.BoolValue}
+		}
+
+		if memberDecl.Value != nil {
+			enumDecl.Members = append(enumDecl.Members, memberDecl)
+		}
+	}
+
+	if len(enumDecl.Members) > 0 {
+		b.md.Enums = append(b.md.Enums, enumDecl)
+	}
+}
+
+// populateEnums handles auto-export of enums that are referenced in exported types.
+// It parses all const blocks to find enums and exports those that are either:
+// 1. Explicitly marked with //encore:export (already handled in resource loop), or
+// 2. Used as dependencies in exported types (usedNamedTypes)
+func (b *builder) populateEnums() {
+	// First, collect explicitly exported enums
+	explicitEnums := make(map[pkginfo.QualifiedName]bool)
+	for _, enum := range parser.Resources[*constant.Enum](b.app.Parse) {
+		qn := pkginfo.Q(paths.Pkg(enum.PkgPath), enum.Name)
+		explicitEnums[qn] = true
+	}
+
+	// Now find and parse enum candidates that are used as dependencies
+	for _, pkg := range b.app.Parse.AppPackages() {
+		for _, file := range pkg.Files {
+			for _, decl := range file.AST().Decls {
+				genDecl, ok := decl.(*ast.GenDecl)
+				if !ok || genDecl.Tok != token.CONST {
+					continue
+				}
+
+				// Parse this const block without requiring //encore:export
+				resources := constant.ParseWithoutDirective(constant.ParseData{
+					Schema: b.app.SchemaParser,
+					Errs:   b.errs,
+					File:   file,
+					Decl:   genDecl,
+					Doc:    "", // Doc will be extracted from type declaration
+				})
+
+				for _, res := range resources {
+					if enum, ok := res.(*constant.Enum); ok {
+						qn := pkginfo.Q(paths.Pkg(enum.PkgPath), enum.Name)
+
+						// Skip if already exported explicitly or already processed
+						if explicitEnums[qn] || b.exportedEnums[qn] {
+							continue
+						}
+
+						// Only export if used as a dependency
+						if b.usedNamedTypes[qn] {
+							b.exportedEnums[qn] = true
+							b.addEnumToMeta(enum)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// populateConstants converts explicitly exported constants to proto format
+func (b *builder) populateConstants() {
+	explicitConstants := parser.Resources[*constant.Constant](b.app.Parse)
+
+	for _, c := range explicitConstants {
+		constDecl := &schema.ConstantDecl{
+			Name:    c.Name,
+			Doc:     c.Doc,
+			PkgName: c.PkgName,
+		}
+
+		// Convert type (or infer from value if not specified)
+		if c.Type != nil {
+			constDecl.Type = b.schemaType(c.Type)
+		} else {
+			// Infer type from value
+			switch c.Value.Kind {
+			case constant.ConstantString:
+				constDecl.Type = &schema.Type{Typ: &schema.Type_Builtin{Builtin: schema.Builtin_STRING}}
+			case constant.ConstantInt:
+				constDecl.Type = &schema.Type{Typ: &schema.Type_Builtin{Builtin: schema.Builtin_INT}}
+			case constant.ConstantBool:
+				constDecl.Type = &schema.Type{Typ: &schema.Type_Builtin{Builtin: schema.Builtin_BOOL}}
+			case constant.ConstantFloat:
+				constDecl.Type = &schema.Type{Typ: &schema.Type_Builtin{Builtin: schema.Builtin_FLOAT64}}
+			}
+		}
+
+		// Convert value
+		switch c.Value.Kind {
+		case constant.ConstantString:
+			constDecl.Value = &schema.ConstantDecl_StrValue{StrValue: c.Value.StrValue}
+		case constant.ConstantInt:
+			constDecl.Value = &schema.ConstantDecl_IntValue{IntValue: c.Value.IntValue}
+		case constant.ConstantBool:
+			constDecl.Value = &schema.ConstantDecl_BoolValue{BoolValue: c.Value.BoolValue}
+		case constant.ConstantFloat:
+			constDecl.Value = &schema.ConstantDecl_IntValue{IntValue: int64(c.Value.FloatValue)}
+		}
+
+		if constDecl.Type != nil && constDecl.Value != nil {
+			b.md.Constants = append(b.md.Constants, constDecl)
+		}
+	}
 }

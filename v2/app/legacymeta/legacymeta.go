@@ -3,7 +3,6 @@ package legacymeta
 import (
 	"cmp"
 	"fmt"
-	"go/ast"
 	"go/token"
 	gotoken "go/token"
 	"slices"
@@ -12,13 +11,11 @@ import (
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/paths"
 	meta "encr.dev/proto/afterpiece/parser/meta/v1"
-	pschema "encr.dev/proto/afterpiece/parser/schema/v1"
 	"encr.dev/v2/app"
 	"encr.dev/v2/internals/perr"
 	"encr.dev/v2/internals/pkginfo"
 	"encr.dev/v2/internals/resourcepaths"
 	"encr.dev/v2/internals/schema"
-	"encr.dev/v2/parser"
 	"encr.dev/v2/parser/apis/api"
 	"encr.dev/v2/parser/apis/authhandler"
 	"encr.dev/v2/parser/apis/constant"
@@ -559,7 +556,8 @@ func (b *builder) Build() *meta.Data {
 		})
 	}
 
-	b.populateConstantsAndEnums()
+	b.populateConstants()
+	b.populateEnums()
 
 	return md
 }
@@ -663,148 +661,4 @@ func zeroNil[T comparable](val T) *T {
 		return nil
 	}
 	return &val
-}
-
-func (b *builder) populateConstantsAndEnums() {
-	explicitConstants := parser.Resources[*constant.Constant](b.app.Parse)
-	// Collect all potential enums from the app (even without //encore:export)
-	allEnums := b.collectAllEnumTypes()
-
-	// Convert explicit constants to proto format
-	for _, c := range explicitConstants {
-		constDecl := &pschema.ConstantDecl{
-			Name:    c.Name,
-			Doc:     c.Doc,
-			PkgName: c.PkgName,
-		}
-
-		// Convert type (or infer from value if not specified)
-		if c.Type != nil {
-			constDecl.Type = b.schemaType(c.Type)
-		} else {
-			// Infer type from value
-			switch c.Value.Kind {
-			case constant.ConstantString:
-				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_STRING}}
-			case constant.ConstantInt:
-				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_INT}}
-			case constant.ConstantBool:
-				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_BOOL}}
-			case constant.ConstantFloat:
-				constDecl.Type = &pschema.Type{Typ: &pschema.Type_Builtin{Builtin: pschema.Builtin_FLOAT64}}
-			}
-		}
-
-		// Convert value
-		switch c.Value.Kind {
-		case constant.ConstantString:
-			constDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: c.Value.StrValue}
-		case constant.ConstantInt:
-			constDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: c.Value.IntValue}
-		case constant.ConstantBool:
-			constDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: c.Value.BoolValue}
-		case constant.ConstantFloat:
-			constDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: int64(c.Value.FloatValue)}
-		}
-
-		if constDecl.Type != nil && constDecl.Value != nil {
-			b.md.Constants = append(b.md.Constants, constDecl)
-		}
-	}
-
-	for qn := range b.usedNamedTypes {
-		if b.exportedEnums[qn] {
-			continue // Already exported explicitly in resource loop
-		}
-		if enum, ok := allEnums[qn]; ok {
-			b.exportedEnums[qn] = true
-			b.addEnumToMeta(enum)
-		}
-	}
-}
-
-// addEnumToMeta converts a constant.Enum to proto format and adds to metadata
-func (b *builder) addEnumToMeta(e *constant.Enum) {
-	enumDecl := &pschema.EnumDecl{
-		Name:    e.Name,
-		Doc:     e.Doc,
-		PkgName: e.PkgName,
-	}
-
-	// Convert underlying type
-	if e.UnderlyingType != nil {
-		enumDecl.UnderlyingType = b.schemaType(e.UnderlyingType)
-	}
-
-	// Convert members
-	for _, m := range e.Members {
-		memberDecl := &pschema.ConstantDecl{
-			Name: m.Name,
-			Doc:  m.Doc,
-		}
-
-		switch m.Value.Kind {
-		case constant.ConstantString:
-			memberDecl.Value = &pschema.ConstantDecl_StrValue{StrValue: m.Value.StrValue}
-		case constant.ConstantInt:
-			memberDecl.Value = &pschema.ConstantDecl_IntValue{IntValue: m.Value.IntValue}
-		case constant.ConstantBool:
-			memberDecl.Value = &pschema.ConstantDecl_BoolValue{BoolValue: m.Value.BoolValue}
-		}
-
-		if memberDecl.Value != nil {
-			enumDecl.Members = append(enumDecl.Members, memberDecl)
-		}
-	}
-
-	if len(enumDecl.Members) > 0 {
-		b.md.Enums = append(b.md.Enums, enumDecl)
-	}
-}
-
-// collectAllEnumTypes discovers enum types that should be auto-exported.
-// It parses const blocks to find enums whose types are referenced in usedNamedTypes.
-func (b *builder) collectAllEnumTypes() map[pkginfo.QualifiedName]*constant.Enum {
-	result := make(map[pkginfo.QualifiedName]*constant.Enum)
-
-	// First, include all explicitly exported enums (those with //encore:export)
-	for _, enum := range parser.Resources[*constant.Enum](b.app.Parse) {
-		qn := pkginfo.Q(paths.Pkg(enum.PkgPath), enum.Name)
-		result[qn] = enum
-	}
-
-	// Now find and parse enum candidates that are used as dependencies
-	for _, pkg := range b.app.Parse.AppPackages() {
-		for _, file := range pkg.Files {
-			for _, decl := range file.AST().Decls {
-				genDecl, ok := decl.(*ast.GenDecl)
-				if !ok || genDecl.Tok != token.CONST {
-					continue
-				}
-
-				// Parse this const block without requiring //encore:export
-				resources := constant.ParseWithoutDirective(constant.ParseData{
-					Schema: b.app.SchemaParser,
-					Errs:   b.errs,
-					File:   file,
-					Decl:   genDecl,
-					Doc:    "", // Doc will be extracted from type declaration
-				})
-
-				// Add enums that are used as dependencies
-				for _, res := range resources {
-					if enum, ok := res.(*constant.Enum); ok {
-						qn := pkginfo.Q(paths.Pkg(enum.PkgPath), enum.Name)
-
-						// Only include if used as a dependency or already explicitly exported
-						if _, alreadyIncluded := result[qn]; !alreadyIncluded && b.usedNamedTypes[qn] {
-							result[qn] = enum
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return result
 }
