@@ -105,8 +105,22 @@ type ParseData struct {
 
 // Parse processes const declarations with //encore:export directive
 func Parse(d ParseData) (results []any) {
+	return parseConstants(d, true)
+}
+
+// ParseWithoutDirective processes const declarations without requiring //encore:export directive.
+// This is used for auto-exporting enums that are dependencies of exported types.
+func ParseWithoutDirective(d ParseData) (results []any) {
+	return parseConstants(d, false)
+}
+
+// parseConstants is the shared implementation for Parse and ParseWithoutDirective.
+// reportUnexported controls whether unexported constants are reported as errors or silently skipped.
+func parseConstants(d ParseData, reportUnexported bool) (results []any) {
 	if d.Decl.Tok != token.CONST {
-		d.Errs.Add(errInvalidConstant.AtGoPos(d.Decl.Pos(), d.Decl.End()))
+		if reportUnexported {
+			d.Errs.Add(errInvalidConstant.AtGoPos(d.Decl.Pos(), d.Decl.End()))
+		}
 		return nil
 	}
 
@@ -120,9 +134,8 @@ func Parse(d ParseData) (results []any) {
 	var constants []*Constant
 	var enums []*Enum
 
-	// Track lastType and lastTypeExpr for type inheritance across specs
+	// Track lastType for type inheritance across specs
 	var lastType schema.Type
-	var lastTypeExpr ast.Expr
 
 	for specIndex, spec := range d.Decl.Specs {
 		valueSpec, ok := spec.(*ast.ValueSpec)
@@ -132,13 +145,14 @@ func Parse(d ParseData) (results []any) {
 
 		// Update inherited type if this spec has an explicit type
 		if valueSpec.Type != nil {
-			lastTypeExpr = valueSpec.Type
 			lastType = schemaType(valueSpec.Type)
 		}
 
 		for i, name := range valueSpec.Names {
 			if !name.IsExported() {
-				d.Errs.Add(errUnexportedConstant.AtGoNode(name))
+				if reportUnexported {
+					d.Errs.Add(errUnexportedConstant.AtGoNode(name))
+				}
 				continue
 			}
 
@@ -146,99 +160,7 @@ func Parse(d ParseData) (results []any) {
 			typ := lastType
 
 			// Evaluate value with specIndex for correct iota handling
-			value := evaluateConstantWithSpecIndex(d.File, valueSpec.Values, i, specIndex, lastTypeExpr)
-
-			tokenFile := d.File.Token()
-			startPos := tokenFile.Position(name.Pos())
-			endPos := tokenFile.Position(name.End())
-
-			loc := v1schema.Loc{
-				PkgPath:      d.File.Pkg.ImportPath.String(),
-				PkgName:      d.File.Pkg.Name,
-				Filename:     d.File.Name,
-				StartPos:     int32(name.Pos()),
-				EndPos:       int32(name.End()),
-				SrcLineStart: int32(startPos.Line),
-				SrcLineEnd:   int32(endPos.Line),
-				SrcColStart:  int32(startPos.Column),
-				SrcColEnd:    int32(endPos.Column),
-			}
-
-			c := &Constant{
-				Name:    name.Name,
-				Type:    typ,
-				Value:   value,
-				Doc:     d.Doc,
-				Loc:     &loc,
-				PkgName: d.File.Pkg.Name,
-				PkgPath: d.File.Pkg.ImportPath.String(),
-			}
-			constants = append(constants, c)
-		}
-	}
-
-	if len(constants) == 0 {
-		return nil
-	}
-
-	if e := tryGroupAsEnum(constants, d.File.Pkg.ImportPath.String(), d.File.Pkg.Name, d.Doc); e != nil {
-		enums = append(enums, e)
-	} else {
-		for _, c := range constants {
-			results = append(results, c)
-		}
-	}
-
-	for _, e := range enums {
-		results = append(results, e)
-	}
-
-	return results
-}
-
-// ParseWithoutDirective processes const declarations without requiring //encore:export directive.
-// This is used for auto-exporting enums that are dependencies of exported types.
-func ParseWithoutDirective(d ParseData) (results []any) {
-	if d.Decl.Tok != token.CONST {
-		return nil
-	}
-
-	schemaType := func(expr ast.Expr) schema.Type {
-		if d.Schema != nil {
-			return d.Schema.ParseType(d.File, expr)
-		}
-		return nil
-	}
-
-	var constants []*Constant
-	var enums []*Enum
-
-	// Track lastType and lastTypeExpr for type inheritance across specs
-	var lastType schema.Type
-	var lastTypeExpr ast.Expr
-
-	for specIndex, spec := range d.Decl.Specs {
-		valueSpec, ok := spec.(*ast.ValueSpec)
-		if !ok {
-			continue
-		}
-
-		// Update inherited type if this spec has an explicit type
-		if valueSpec.Type != nil {
-			lastTypeExpr = valueSpec.Type
-			lastType = schemaType(valueSpec.Type)
-		}
-
-		for i, name := range valueSpec.Names {
-			if !name.IsExported() {
-				continue // Skip unexported, don't error
-			}
-
-			// Use inherited type
-			typ := lastType
-
-			// Evaluate value with specIndex for correct iota handling
-			value := evaluateConstantWithSpecIndex(d.File, valueSpec.Values, i, specIndex, lastTypeExpr)
+			value := evaluateConstantWithSpecIndex(d.File, valueSpec.Values, i, specIndex)
 
 			tokenFile := d.File.Token()
 			startPos := tokenFile.Position(name.Pos())
@@ -290,7 +212,7 @@ func ParseWithoutDirective(d ParseData) (results []any) {
 
 // evaluateConstantWithSpecIndex evaluates a constant value using specIndex for iota.
 // It also handles cases where no value is provided (inherited from previous spec).
-func evaluateConstantWithSpecIndex(file *pkginfo.File, values []ast.Expr, valueIndex int, specIndex int, lastTypeExpr ast.Expr) ConstantValue {
+func evaluateConstantWithSpecIndex(file *pkginfo.File, values []ast.Expr, valueIndex int, specIndex int) ConstantValue {
 	var expr ast.Expr
 	if len(values) > valueIndex {
 		expr = values[valueIndex]
@@ -428,9 +350,27 @@ func tryGroupAsEnum(constants []*Constant, pkgPath, pkgName, doc string) *Enum {
 		return nil
 	}
 
+	// Only group as enum if we have a NamedType
+	// Builtin types like int/string/bool should remain as separate constants
+	firstNamedType, isNamed := firstType.(schema.NamedType)
+	if !isNamed {
+		return nil
+	}
+
+	// Verify all constants have the same NamedType reference
 	for _, c := range constants[1:] {
-		if c.Type == nil || !typesEqual(firstType, c.Type) {
+		cNamedType, ok := c.Type.(schema.NamedType)
+		if !ok {
 			return nil
+		}
+		// Ensure they reference the same type declaration
+		if (firstNamedType.DeclInfo == nil) != (cNamedType.DeclInfo == nil) {
+			return nil
+		}
+		if firstNamedType.DeclInfo != nil && cNamedType.DeclInfo != nil {
+			if firstNamedType.DeclInfo.Name != cNamedType.DeclInfo.Name {
+				return nil
+			}
 		}
 	}
 

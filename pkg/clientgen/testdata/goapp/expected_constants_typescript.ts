@@ -91,7 +91,57 @@ export namespace svc {
 
     export const ErrorCodeServerError: string = "SERVER_ERROR";
 
+    /**
+     * IotaInheritance tests that inherited values work (like iota-based enums)
+     */
+    export const IotaInheritanceFirst: number = 0;
+
+    /**
+     * IotaInheritance tests that inherited values work (like iota-based enums)
+     */
+    export const IotaInheritanceSecond: number = 1;
+
+    /**
+     * IotaInheritance tests that inherited values work (like iota-based enums)
+     */
+    export const IotaInheritanceThird: number = 2;
+
     export const MaxRetries: number = 3;
+
+    /**
+     * MultiNameMultiType tests multi-name const specs with different types
+     */
+    export const MultiNameMultiTypeA: number = 100;
+
+    /**
+     * MultiNameMultiType tests multi-name const specs with different types
+     */
+    export const MultiNameMultiTypeB: number = 200;
+
+    /**
+     * MultiNameStrings tests multi-name const specs with strings
+     */
+    export const MultiNameStringX: string = "x";
+
+    /**
+     * MultiNameStrings tests multi-name const specs with strings
+     */
+    export const MultiNameStringY: string = "y";
+
+    /**
+     * MultiNameStrings tests multi-name const specs with strings
+     */
+    export const MultiNameStringZ: string = "z";
+
+    /**
+     * MultiNameWithExplicitType tests multi-name with explicit type annotation
+     */
+    export const MultiNameWithExplicitTypeAlpha: number = 10;
+
+    /**
+     * MultiNameWithExplicitType tests multi-name with explicit type annotation
+     */
+    export const MultiNameWithExplicitTypeBeta: number = 20;
 
     /**
      * Priority represents importance level

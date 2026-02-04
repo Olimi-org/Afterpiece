@@ -72,3 +72,29 @@ const (
 	ErrorCodeNotFound     = "NOT_FOUND"
 	ErrorCodeServerError  = "SERVER_ERROR"
 )
+
+// MultiNameMultiType tests multi-name const specs with different types
+//encore:export
+const (
+	MultiNameMultiTypeA, MultiNameMultiTypeB = 100, 200
+)
+
+// MultiNameStrings tests multi-name const specs with strings
+//encore:export
+const (
+	MultiNameStringX, MultiNameStringY, MultiNameStringZ = "x", "y", "z"
+)
+
+// MultiNameWithExplicitType tests multi-name with explicit type annotation
+//encore:export
+const (
+	MultiNameWithExplicitTypeAlpha, MultiNameWithExplicitTypeBeta int = 10, 20
+)
+
+// IotaInheritance tests that inherited values work (like iota-based enums)
+//encore:export
+const (
+	IotaInheritanceFirst = iota
+	IotaInheritanceSecond
+	IotaInheritanceThird
+)
