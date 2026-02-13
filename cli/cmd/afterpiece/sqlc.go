@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/sqlc-dev/sqlc/pkg/cli"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"encr.dev/internal/env"
 	"encr.dev/proto/afterpiece/daemon"
 )
 
@@ -110,9 +111,12 @@ func init() {
 				return err
 			}
 
-			res := cli.Run([]string{"generate", "-f", sqlcPath})
-			if res != 0 {
-				return fmt.Errorf("sqlc exited with code %d", res)
+			sqlcBin := env.RequireSqlcPath()
+			sqlcCmd := exec.Command(sqlcBin, "generate", "-f", sqlcPath)
+			sqlcCmd.Stdout = os.Stdout
+			sqlcCmd.Stderr = os.Stderr
+			if err := sqlcCmd.Run(); err != nil {
+				return fmt.Errorf("sqlc exited with error: %w", err)
 			}
 			reqBlob, err := os.ReadFile(filepath.Join(outPath, "output.pb"))
 			if !useProto {
