@@ -36,13 +36,7 @@ tasks:
 
   test:
     summary: Runs all tests
-    cmds:
-      - task: common:test:unit
-
-  test:unit:
-    summary: Runs unit tests
-    cmds:
-      - task: common:test:unit
+    cmd: go test -parallel 128 -p 16 -short ./...
 
   clean:
     summary: Cleans build artifacts
