@@ -11,7 +11,7 @@ node = "20.19"
 goreleaser = "latest"
 protoc = "latest"
 task = "latest"
-upx = "latest"
+upx = "5.1.0"
 
 # Development tools
 golangci-lint = "latest"
