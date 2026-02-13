@@ -11,14 +11,40 @@ on:
     - cron: "30 2 * * *" # Every night at 2:30am UTC (if you change this schedule, also change the if statement in the test steps)
 
 jobs:
-  build:
-    name: "Build"
+  setup:
+    name: "Setup"
     runs-on: ubuntu-24.04
-
     steps:
       - uses: actions/checkout@v4
         with:
           path: encr.dev
+
+      - name: Setup Mise
+        uses: jdx/mise-action@v3
+
+      - name: Download Go modules
+        run: cd encr.dev && go mod download
+
+      - name: Install encore-go
+        run: |
+          URL=$(curl -s https://api.github.com/repos/Olimi-org/ap-go/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d : -f 2,3 | tr -d \" | tr -d '[:space:]')
+          curl --fail -L -o encore-go.tar.gz $URL && tar -C . -xzf ./encore-go.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workspace
+          path: |
+            encr.dev
+            encore-go
+
+  build:
+    needs: setup
+    name: "Build"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: workspace
 
       - name: Setup Mise
         uses: jdx/mise-action@v3
@@ -32,81 +58,61 @@ jobs:
           GOOS: windows
 
   test:
+    needs: setup
     name: "Test"
     runs-on: ubuntu-24.04
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: encr.dev
+          name: workspace
 
       - name: Setup Mise
         uses: jdx/mise-action@v3
 
-      - name: Install encore-go
-        run: |
-          URL=$(curl -s https://api.github.com/repos/Olimi-org/ap-go/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d : -f 2,3 | tr -d \" | tr -d '[:space:]')
-          curl --fail -L -o encore-go.tar.gz $URL && tar -C . -xzf ./encore-go.tar.gz
-
-      # If we're not running on a schedule, we only want to run tests on changed code
       - name: Run tests on changed code on the CLI
-        run: cd encr.dev && go test -p 4 -parallel 4 -short -tags=dev_build 2>&1 ./...
+        run: cd encr.dev && go test -p 16 -parallel 8 -short -tags=dev_build 2>&1 ./...
         if: github.event.schedule != '30 2 * * *'
         env:
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
       - name: Run tests on changed runtime code
-        run: cd encr.dev/runtimes/go && go test -p 4 -parallel 4 -short -tags=dev_build ./...
+        run: cd encr.dev/runtimes/go && go test -p 16 -parallel 8 -short -tags=dev_build ./...
         if: github.event.schedule != '30 2 * * *'
 
-      # Each night we want to run all tests multiple times to catch any flaky tests
-      # We will shuffle the order in which tests are run and run them 25 times looking
-      # for failures. We will also fail fast so that we don't waste time running tests
-      # that are already failing.
       - name: Run all tests multiple times on the CLI
-        run: cd encr.dev && go test -p 4 -parallel 4 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
+        run: cd encr.dev && go test -p 16 -parallel 8 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
         if: github.event.schedule == '30 2 * * *'
         env:
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
       - name: Run all tests multiple times on the runtime
-        run: cd encr.dev/runtimes/go && go test -p 4 -parallel 4 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
+        run: cd encr.dev/runtimes/go && go test -p 16 -parallel 8 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
         if: github.event.schedule == '30 2 * * *'
 
   test-e2e:
+    needs: setup
     name: "Test e2e"
     runs-on: ubuntu-24.04
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: encr.dev
+          name: workspace
 
       - name: Setup Mise
         uses: jdx/mise-action@v3
 
-      - name: Install encore-go
-        run: |
-          URL=$(curl -s https://api.github.com/repos/Olimi-org/ap-go/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d : -f 2,3 | tr -d \" | tr -d '[:space:]')
-          curl --fail -L -o encore-go.tar.gz $URL && tar -C . -xzf ./encore-go.tar.gz
-
       - name: Install tsbundler
         run: cd encr.dev && go install ./cli/cmd/tsbundler-encore
 
-      # If we're not running on a schedule, we only want to run tests on changed code
       - name: Run tests on changed code on the CLI
-        run: cd encr.dev && go test -p 4 -parallel 4 -short -tags=e2e 2>&1 ./e2e-tests
+        run: cd encr.dev && go test -p 16 -parallel 8 -short -tags=e2e 2>&1 ./e2e-tests
         if: github.event.schedule != '30 2 * * *'
         env:
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
-      # Each night we want to run all tests multiple times to catch any flaky tests
-      # We will shuffle the order in which tests are run and run them 25 times looking
-      # for failures. We will also fail fast so that we don't waste time running tests
-      # that are already failing.
       - name: Run all tests multiple times on the CLI
         run: cd encr.dev && go test -v --count=5 -failfast -shuffle=on -timeout=30m -tags=e2e ./e2e-tests
         if: github.event.schedule == '30 2 * * *'
