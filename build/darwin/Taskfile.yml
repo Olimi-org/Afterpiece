@@ -7,7 +7,7 @@ tasks:
   build:
     summary: Builds all macOS binaries
     deps:
-      - task: setup
+      - task: common:setup
     cmds:
       - task: build:amd64
       - task: build:arm64
@@ -20,28 +20,15 @@ tasks:
           ARCH: amd64
     cmds:
       - mkdir -p {{.BIN_DIR}}/encore-darwin-amd64/bin
-      - |
-        echo "Building macOS AMD64 with SDK: {{.MACOS_SDK_PATH}}"
-
-        # Cross-compilation with macOS 10.15 SDK using Frameworks path
-
-        CGO_ENABLED=1 \
-        CC="{{.ZIG_PATH}} cc -target x86_64-macos.10.12 -arch x86_64 -isysroot {{.MACOS_SDK_PATH}} -Wno-error=expansion-to-defined -Wno-error=nullability-completeness -Wno-error=undef-prefix -Wno-error=undefined-var-template" \
-        CXX="{{.ZIG_PATH}} c++ -target x86_64-macos.10.12 -arch x86_64 -isysroot {{.MACOS_SDK_PATH}} -Wno-error=expansion-to-defined -Wno-error=nullability-completeness -Wno-error=undef-prefix -Wno-error=undefined-var-template" \
-        CGO_CFLAGS="-D_DARWIN_C_SOURCE -D__POSIX_C_SOURCE=200809L -I{{.MACOS_SDK_PATH}}/usr/include" \
-        CGO_LDFLAGS="-L{{.MACOS_SDK_PATH}}/usr/lib -F{{.MACOS_SDK_PATH}}/System/Library/Frameworks -lSystem -framework Security -framework CoreFoundation -lpthread -lresolv" \
-        go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -tags=netgo -buildmode=pie -o {{.BIN_DIR}}/encore-darwin-amd64/bin/encore ./cli/cmd/encore
-
+      - CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/encore-darwin-amd64/bin/encore ./cli/cmd/afterpiece
       - mv {{.BIN_DIR}}/git-remote-encore-darwin-amd64 {{.BIN_DIR}}/encore-darwin-amd64/bin/git-remote-encore 2>/dev/null || true
       - mv {{.BIN_DIR}}/tsbundler-encore-darwin-amd64 {{.BIN_DIR}}/encore-darwin-amd64/bin/tsbundler-encore 2>/dev/null || true
+      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/encore-darwin-amd64/bin/sqlc 2>/dev/null || true
       - cp -r encore-go/* {{.BIN_DIR}}/encore-darwin-amd64/encore-go/ 2>/dev/null || true
       - cp LICENSE* {{.BIN_DIR}}/encore-darwin-amd64/ 2>/dev/null || true
       - cp README* {{.BIN_DIR}}/encore-darwin-amd64/ 2>/dev/null || true
       - mkdir -p {{.BIN_DIR}}/encore-darwin-amd64/runtimes/
       - cp -r runtimes/* {{.BIN_DIR}}/encore-darwin-amd64/runtimes/ 2>/dev/null || true
-    env:
-      GOOS: darwin
-      GOARCH: amd64
 
   build:arm64:
     summary: Builds Encore for macOS ARM64
@@ -51,56 +38,21 @@ tasks:
           ARCH: arm64
     cmds:
       - mkdir -p {{.BIN_DIR}}/encore-darwin-arm64/bin
-      - |
-        echo "Building macOS ARM64 with SDK: {{.MACOS_SDK_PATH}}"
-
-        # Cross-compilation with macOS 11.3 SDK for ARM64 targeting 11.3 minimum
-
-        CGO_ENABLED=1 \
-        CC="{{.ZIG_PATH}} cc -target aarch64-macos.11.3 -arch arm64 -mmacosx-version-min=11.0 \
-          -isysroot {{.MACOS_SDK_PATH}} \
-          -D_DARWIN_C_SOURCE -D_DARWIN_UNLIMITED_SELECT -DTARGET_OS_IPHONE=0 -Wno-error=undef-prefix \
-          -Wno-error=expansion-to-defined -Wno-error=nullability-completeness -Wno-error=availability" \
-        CXX="{{.ZIG_PATH}} c++ -target aarch64-macos.11.3 -arch arm64 -mmacosx-version-min=11.0 \
-          -isysroot {{.MACOS_SDK_PATH}} \
-          -D_DARWIN_C_SOURCE -D_DARWIN_UNLIMITED_SELECT \
-          -Wno-error=expansion-to-defined -Wno-error=nullability-completeness -Wno-error=availability" \
-        CGO_CFLAGS="-D_DARWIN_C_SOURCE -D_DARWIN_UNLIMITED_SELECT -mmacosx-version-min=11.0 \
-          -I{{.MACOS_SDK_PATH}}/usr/include \
-          -Wno-error=availability" \
-          CGO_LDFLAGS="--sysroot {{.MACOS_SDK_PATH}} \
-          -L{{.MACOS_SDK_PATH}}/usr/lib \
-          -F{{.MACOS_SDK_PATH}}/System/Library/Frameworks \
-          -lSystem -framework Security -framework CoreFoundation -lpthread -lresolv" \
-        go build \
-          -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" \
-          -trimpath -tags=netgo -buildmode=pie \
-          -o {{.BIN_DIR}}/encore-darwin-arm64/bin/encore ./cli/cmd/encore
-
+      - CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/encore-darwin-arm64/bin/encore ./cli/cmd/afterpiece
       - mv {{.BIN_DIR}}/git-remote-encore-darwin-arm64 {{.BIN_DIR}}/encore-darwin-arm64/bin/git-remote-encore 2>/dev/null || true
       - mv {{.BIN_DIR}}/tsbundler-encore-darwin-arm64 {{.BIN_DIR}}/encore-darwin-arm64/bin/tsbundler-encore 2>/dev/null || true
+      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/encore-darwin-arm64/bin/sqlc 2>/dev/null || true
       - cp -r encore-go/* {{.BIN_DIR}}/encore-darwin-arm64/encore-go/ 2>/dev/null || true
       - cp LICENSE* {{.BIN_DIR}}/encore-darwin-arm64/ 2>/dev/null || true
       - cp README* {{.BIN_DIR}}/encore-darwin-arm64/ 2>/dev/null || true
       - mkdir -p {{.BIN_DIR}}/encore-darwin-arm64/runtimes/
       - cp -r runtimes/* {{.BIN_DIR}}/encore-darwin-arm64/runtimes/ 2>/dev/null || true
-    env:
-      GOOS: darwin
-      GOARCH: arm64
-
-  setup:
-    internal: true
-    deps:
-      - task: common:setup
 
   build:cli:
     summary: Builds only the main CLI for macOS
     deps:
       - task: build
 
-
-
-  # Build additional components for macOS
   build:components:
     summary: Builds git-remote and tsbundler for macOS
     cmds:

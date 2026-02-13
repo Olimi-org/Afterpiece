@@ -10,7 +10,6 @@ on:
         description: 'Version to build ("1.2.3")'
         required: true
 
-
 jobs:
   build:
     strategy:
@@ -33,39 +32,6 @@ jobs:
       - name: Install tools
         run: mise install
 
-      - name: Setup macOS SDKs for cross-compilation
-        if: matrix.platform == 'darwin'
-        run: |
-          echo "Setting up macOS SDKs for cross-compilation on Ubuntu..."
-          
-          # Create resources directory
-          mkdir -p resources/sdks
-          
-          # Install dependencies for SDK extraction
-          sudo apt-get update
-          sudo apt-get install -y bzip2 xz-utils
-          
-          # Download and extract appropriate SDK based on architecture
-          if [[ "${{ matrix.arch }}" == "amd64" ]]; then
-            echo "Downloading macOS 10.15 SDK for AMD64 builds..."
-            curl -L "https://github.com/alexey-lysiuk/macos-sdk/releases/download/10.15/MacOSX10.15.tar.bz2" | tar -C resources/sdks -xjf -
-            SDK_FULL_PATH="${GITHUB_WORKSPACE}/resources/sdks/MacOSX10.15.sdk"
-            echo "Using macOS 10.15 SDK for AMD64 cross-compilation"
-          else
-            echo "Downloading macOS 11.3 SDK for ARM64 builds..."
-            curl -L "https://github.com/alexey-lysiuk/macos-sdk/releases/download/11.3/MacOSX11.3.tar.bz2" | tar -C resources/sdks -xjf -
-            SDK_FULL_PATH="${GITHUB_WORKSPACE}/resources/sdks/MacOSX11.3.sdk"
-            echo "Using macOS 11.3 SDK for ARM64 cross-compilation"
-          fi
-          
-          # Set MACOS_SDK_PATH to full absolute path
-          echo "MACOS_SDK_PATH=${SDK_FULL_PATH}" >> $GITHUB_ENV
-          echo "SDKROOT=${SDK_FULL_PATH}" >> $GITHUB_ENV
-          echo "SDK path: ${SDK_FULL_PATH}"
-          
-          # Verify SDK installation
-          ls -la ${SDK_FULL_PATH}/
-
       - name: Extract version from tag
         shell: bash
         id: version
@@ -84,33 +50,28 @@ jobs:
       - name: Download Encore-Go
         shell: bash
         run: |
-          echo "Downloading latest Encore-Go fork for ${{ matrix.platform }}_${{ matrix.arch }}"
-
-          # Create encore-go directory and download the fork
+          echo "Downloading latest Ap-Go fork for ${{ matrix.platform }}_${{ matrix.arch }}"
           mkdir -p encore-go
-
-          # Determine the asset name based on platform and architecture
-          if [ "${{ matrix.platform }}" = "linux" ]; then
-            if [ "${{ matrix.arch }}" = "amd64" ]; then
-              ASSET="linux_x86-64.tar.gz"
-            else
-              ASSET="linux_arm64.tar.gz"
-            fi
-          elif [ "${{ matrix.platform }}" = "windows" ]; then
-            ASSET="windows_x86-64.tar.gz"
-          elif [ "${{ matrix.platform }}" = "darwin" ]; then
-            if [ "${{ matrix.arch }}" = "amd64" ]; then
-              ASSET="macos_x86-64.tar.gz"
-            else
-              ASSET="macos_arm64.tar.gz"
-            fi
-          fi
-
-          # Download and extract the latest Go fork
-          curl -L "https://github.com/TheGB0077/encore-go/releases/latest/download/${ASSET}" | tar -C encore-go -xzf -
-
+          curl -L "https://github.com/Olimi-org/ap-go/releases/latest/download/${{ matrix.platform }}_${{ matrix.arch }}.tar.gz" | tar -C encore-go -xzf -
           echo "Go fork downloaded to encore-go/"
           ls -la encore-go/
+
+      - name: Download sqlc
+        shell: bash
+        run: |
+          echo "Downloading sqlc for ${{ matrix.platform }}_${{ matrix.arch }}"
+          mkdir -p dist
+
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            curl -L "https://github.com/sqlc-dev/sqlc/releases/download/v1.30.0/sqlc_1.30.0_${{ matrix.platform }}_${{ matrix.arch }}.zip" -o sqlc.zip
+            unzip sqlc.zip -d dist/
+            rm sqlc.zip
+          else
+            curl -L "https://github.com/sqlc-dev/sqlc/releases/download/v1.30.0/sqlc_1.30.0_${{ matrix.platform }}_${{ matrix.arch }}.tar.gz" | tar -C dist -xzf -
+          fi
+
+          echo "sqlc downloaded"
+          ls -la dist/
 
       - name: Build
         run: task ${{ matrix.platform }}:build:${{ matrix.arch }}
@@ -122,7 +83,7 @@ jobs:
         shell: bash
         run: |
           cd dist/encore-${{ matrix.platform }}-${{ matrix.arch }}
-          
+
           # Create tar.gz with version in name for all platforms
           tar -czf ../../encore-${{ steps.version.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz .
 
@@ -157,16 +118,13 @@ jobs:
       - name: Organize release assets
         run: |
           mkdir -p release-assets
-          
-          # Move archives to release-assets (already correctly named)
           mv artifacts/encore-${{ steps.version.outputs.version }}-*.tar.gz release-assets/ 2>/dev/null || true
           mv artifacts/encore-${{ steps.version.outputs.version }}-*.zip release-assets/ 2>/dev/null || true
-          
-          # Create checksums
+
           cd release-assets
           sha256sum * > checksums.txt
           cd ..
-          
+
           echo "Release assets ready:"
           ls -la release-assets/
 
@@ -174,14 +132,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Encore ${{ steps.version.outputs.version }}
+          name: Afterpiece ${{ steps.version.outputs.version }}
           body: |
             ## Encore ${{ steps.version.outputs.version }}
 
             ### Installation
             ```bash
-            # Install Encore CLI
-            curl -L https://github.com/encoredev/encore/releases/download/v${{ steps.version.outputs.version }}/install.sh | bash
+            ...
             ```
 
             ### Downloads

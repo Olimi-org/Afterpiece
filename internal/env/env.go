@@ -3,6 +3,7 @@ package env
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
@@ -127,6 +128,31 @@ func encoreGoRoot() string {
 		return filepath.Join(root, "encore-go")
 	}
 	return ""
+}
+
+func SqlcPath() string {
+	if p := os.Getenv("ENCORE_SQLC_PATH"); p != "" {
+		return p
+	}
+	if root, ok := determineRoot(); ok {
+		bundled := filepath.Join(root, "bin", "sqlc")
+		if _, err := os.Stat(bundled); err == nil {
+			return bundled
+		}
+	}
+	if path, err := exec.LookPath("sqlc"); err == nil {
+		return path
+	}
+	return ""
+}
+
+func RequireSqlcPath() string {
+	p := SqlcPath()
+	if p == "" {
+		log.Fatal().Msg("could not find sqlc. Please install sqlc or set ENCORE_SQLC_PATH. " +
+			"See https://docs.sqlc.dev/en/latest/reference/installation.html")
+	}
+	return p
 }
 
 // List reports Encore environment variables, in the same format as os.Environ().
