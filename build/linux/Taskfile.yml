@@ -34,6 +34,7 @@ tasks:
       - cp -r runtimes/* {{.BIN_DIR}}/encore-linux-amd64/runtimes/ 2>/dev/null || true
       - cp LICENSE* {{.BIN_DIR}}/encore-linux-amd64/ 2>/dev/null || true
       - cp README* {{.BIN_DIR}}/encore-linux-amd64/ 2>/dev/null || true
+      - upx --best {{.BIN_DIR}}/encore-linux-amd64/bin/*
 
   build:arm64:
     summary: Builds Encore for Linux ARM64
@@ -52,6 +53,7 @@ tasks:
       - cp -r runtimes/* {{.BIN_DIR}}/encore-linux-arm64/runtimes/ 2>/dev/null || true
       - cp LICENSE* {{.BIN_DIR}}/encore-linux-arm64/ 2>/dev/null || true
       - cp README* {{.BIN_DIR}}/encore-linux-arm64/ 2>/dev/null || true
+      - upx --best {{.BIN_DIR}}/encore-linux-arm64/bin/*
 
   build:components:
     summary: Builds git-remote and tsbundler for Linux

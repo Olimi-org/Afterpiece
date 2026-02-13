@@ -28,6 +28,7 @@ tasks:
       - cp -r runtimes/* {{.BIN_DIR}}/encore-windows-amd64/runtimes/ 2>/dev/null || true
       - cp LICENSE* {{.BIN_DIR}}/encore-windows-amd64/ 2>/dev/null || true
       - cp README* {{.BIN_DIR}}/encore-windows-amd64/ 2>/dev/null || true
+      - upx --best {{.BIN_DIR}}/encore-windows-amd64/bin/*.exe
 
   build:components:
     summary: Builds Windows components
