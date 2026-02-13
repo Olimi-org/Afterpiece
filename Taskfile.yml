@@ -11,9 +11,7 @@ vars:
   BIN_DIR: "dist"
   VERSION: '{{.VERSION | default "dev"}}'
   ENCORE_GO_VERSION: '{{.ENCORE_GO_VERSION | default "encore-go1.23.0"}}'
-  ZIG_PATH:
-    sh: mise which zig
-  MACOS_SDK_PATH: '{{.MACOS_SDK_PATH | default ""}}'
+
 
 tasks:
   default:
