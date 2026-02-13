@@ -27,9 +27,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('encr.dev/**/go.sum') }}
+          key: go-modules-v1-${{ runner.os }}-${{ hashFiles('encr.dev/**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            go-modules-v1-${{ runner.os }}-
 
       - name: Build
         run: cd encr.dev && go build ./...
@@ -40,6 +40,7 @@ jobs:
           GOOS: windows
 
   test:
+    needs: build
     name: "Test"
     runs-on: ubuntu-24.04
 
@@ -55,9 +56,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('encr.dev/**/go.sum') }}
+          key: go-modules-v1-${{ runner.os }}-${{ hashFiles('encr.dev/**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            go-modules-v1-${{ runner.os }}-
 
       - name: Install encore-go
         run: |
@@ -65,28 +66,29 @@ jobs:
           curl --fail -L -o encore-go.tar.gz $URL && tar -C . -xzf ./encore-go.tar.gz
 
       - name: Run tests on changed code on the CLI
-        run: cd encr.dev && GOMAXPROCS=1 go test -p 8 -parallel 4 -short -tags=dev_build 2>&1 ./...
+        run: cd encr.dev && go test -p 16 -parallel 32 -short -tags=dev_build 2>&1 ./...
         if: github.event.schedule != '30 2 * * *'
         env:
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
       - name: Run tests on changed runtime code
-        run: cd encr.dev/runtimes/go && GOMAXPROCS=1 go test -p 8 -parallel 4 -short -tags=dev_build ./...
+        run: cd encr.dev/runtimes/go && go test -p 16 -parallel 32 -short -tags=dev_build ./...
         if: github.event.schedule != '30 2 * * *'
 
       - name: Run all tests multiple times on the CLI
-        run: cd encr.dev && GOMAXPROCS=1 go test -p 8 -parallel 4 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
+        run: cd encr.dev && go test -p 16 -parallel 32 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
         if: github.event.schedule == '30 2 * * *'
         env:
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
       - name: Run all tests multiple times on the runtime
-        run: cd encr.dev/runtimes/go && GOMAXPROCS=1 go test -p 8 -parallel 4 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
+        run: cd encr.dev/runtimes/go && go test -p 16 -parallel 32 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
         if: github.event.schedule == '30 2 * * *'
 
   test-e2e:
+    needs: build
     name: "Test e2e"
     runs-on: ubuntu-24.04
 
@@ -102,9 +104,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('encr.dev/**/go.sum') }}
+          key: go-modules-v1-${{ runner.os }}-${{ hashFiles('encr.dev/**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            go-modules-v1-${{ runner.os }}-
 
       - name: Install encore-go
         run: |
@@ -115,14 +117,14 @@ jobs:
         run: cd encr.dev && go install ./cli/cmd/tsbundler-encore
 
       - name: Run tests on changed code on the CLI
-        run: cd encr.dev && GOMAXPROCS=1 go test -p 8 -parallel 4 -short -tags=e2e 2>&1 ./e2e-tests
+        run: cd encr.dev && go test -p 16 -parallel 32 -short -tags=e2e 2>&1 ./e2e-tests
         if: github.event.schedule != '30 2 * * *'
         env:
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
       - name: Run all tests multiple times on the CLI
-        run: cd encr.dev && GOMAXPROCS=1 go test -v --count=5 -failfast -shuffle=on -timeout=30m -tags=e2e ./e2e-tests
+        run: cd encr.dev && go test -p 16 -parallel 32 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=e2e ./e2e-tests
         if: github.event.schedule == '30 2 * * *'
         env:
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
