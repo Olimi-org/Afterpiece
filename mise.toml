@@ -15,6 +15,7 @@ task = "latest"
 
 # Development tools
 golangci-lint = "latest"
+upx = "latest"
 # semgrep = "latest"
 
 # Cross Compilation compiler
