@@ -1,4 +1,4 @@
-name: Release 3
+name: Release
 
 on:
   push:
@@ -9,6 +9,9 @@ on:
       version:
         description: 'Version to build ("1.2.3")'
         required: true
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -28,9 +31,6 @@ jobs:
 
       - name: Setup Mise
         uses: jdx/mise-action@v3
-
-      - name: Install tools
-        run: mise install
 
       - name: Extract version from tag
         shell: bash
