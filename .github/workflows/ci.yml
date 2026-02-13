@@ -24,6 +24,13 @@ jobs:
 
       - name: Download Go modules
         run: cd encr.dev && go mod download
+        env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
+
+      - name: Build
+        run: cd encr.dev && go build ./...
+        env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
 
       - name: Install encore-go
         run: |
@@ -35,7 +42,9 @@ jobs:
           name: workspace
           path: |
             encr.dev
+            encr.dev/.git
             encore-go
+            go-mod-cache
 
   build:
     needs: setup
@@ -51,11 +60,14 @@ jobs:
 
       - name: Build
         run: cd encr.dev && go build ./...
+        env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
 
       - name: Build for Windows
         run: cd encr.dev && go build ./...
         env:
           GOOS: windows
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
 
   test:
     needs: setup
@@ -73,23 +85,29 @@ jobs:
         run: cd encr.dev && go test -p 16 -parallel 8 -short -tags=dev_build 2>&1 ./...
         if: github.event.schedule != '30 2 * * *'
         env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
       - name: Run tests on changed runtime code
         run: cd encr.dev/runtimes/go && go test -p 16 -parallel 8 -short -tags=dev_build ./...
         if: github.event.schedule != '30 2 * * *'
+        env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
 
       - name: Run all tests multiple times on the CLI
         run: cd encr.dev && go test -p 16 -parallel 8 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
         if: github.event.schedule == '30 2 * * *'
         env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
       - name: Run all tests multiple times on the runtime
         run: cd encr.dev/runtimes/go && go test -p 16 -parallel 8 -v --count=5 -failfast -shuffle=on -timeout=30m -tags=dev_build ./...
         if: github.event.schedule == '30 2 * * *'
+        env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
 
   test-e2e:
     needs: setup
@@ -105,11 +123,14 @@ jobs:
 
       - name: Install tsbundler
         run: cd encr.dev && go install ./cli/cmd/tsbundler-encore
+        env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
 
       - name: Run tests on changed code on the CLI
         run: cd encr.dev && go test -p 16 -parallel 8 -short -tags=e2e 2>&1 ./e2e-tests
         if: github.event.schedule != '30 2 * * *'
         env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
 
@@ -117,5 +138,6 @@ jobs:
         run: cd encr.dev && go test -v --count=5 -failfast -shuffle=on -timeout=30m -tags=e2e ./e2e-tests
         if: github.event.schedule == '30 2 * * *'
         env:
+          GOMODCACHE: ${{ github.workspace }}/go-mod-cache
           ENCORE_GOROOT: ${{ github.workspace }}/encore-go
           ENCORE_RUNTIMES_PATH: ${{ github.workspace }}/encr.dev/runtimes
