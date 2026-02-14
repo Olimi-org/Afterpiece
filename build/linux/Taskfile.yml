@@ -18,47 +18,17 @@ tasks:
       - task: build
 
   build:amd64:
-    summary: Builds Encore for Linux AMD64
+    summary: Builds for Linux AMD64
     deps:
-      - task: build:components
+      - task: common:build:platform
         vars:
+          PLATFORM: linux
           ARCH: amd64
-    cmds:
-      - mkdir -p {{.BIN_DIR}}/ap-linux-amd64/bin
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/ap-linux-amd64/bin/ap ./cli/cmd/afterpiece
-      - mv {{.BIN_DIR}}/git-remote-ap-linux-amd64 {{.BIN_DIR}}/ap-linux-amd64/bin/git-remote-ap 2>/dev/null || true
-      - mv {{.BIN_DIR}}/tsbundler-ap-linux-amd64 {{.BIN_DIR}}/ap-linux-amd64/bin/tsbundler-ap 2>/dev/null || true
-      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/ap-linux-amd64/bin/sqlc 2>/dev/null || true
-      - cp -r ap-go/* {{.BIN_DIR}}/ap-linux-amd64/ap-go/ 2>/dev/null || true
-      - mkdir -p {{.BIN_DIR}}/ap-linux-amd64/runtimes/
-      - cp -r runtimes/* {{.BIN_DIR}}/ap-linux-amd64/runtimes/ 2>/dev/null || true
-      - cp LICENSE* {{.BIN_DIR}}/ap-linux-amd64/ 2>/dev/null || true
-      - cp README* {{.BIN_DIR}}/ap-linux-amd64/ 2>/dev/null || true
-      - upx --best {{.BIN_DIR}}/ap-linux-amd64/bin/*
 
   build:arm64:
-    summary: Builds Encore for Linux ARM64
+    summary: Builds for Linux ARM64
     deps:
-      - task: build:components
+      - task: common:build:platform
         vars:
+          PLATFORM: linux
           ARCH: arm64
-    cmds:
-      - mkdir -p {{.BIN_DIR}}/ap-linux-arm64/bin
-      - CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/ap-linux-arm64/bin/ap ./cli/cmd/afterpiece
-      - mv {{.BIN_DIR}}/git-remote-ap-linux-arm64 {{.BIN_DIR}}/ap-linux-arm64/bin/git-remote-ap 2>/dev/null || true
-      - mv {{.BIN_DIR}}/tsbundler-ap-linux-arm64 {{.BIN_DIR}}/ap-linux-arm64/bin/tsbundler-ap 2>/dev/null || true
-      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/ap-linux-arm64/bin/sqlc 2>/dev/null || true
-      - cp -r ap-go/* {{.BIN_DIR}}/ap-linux-arm64/ap-go/ 2>/dev/null || true
-      - mkdir -p {{.BIN_DIR}}/ap-linux-arm64/runtimes/
-      - cp -r runtimes/* {{.BIN_DIR}}/ap-linux-arm64/runtimes/ 2>/dev/null || true
-      - cp LICENSE* {{.BIN_DIR}}/ap-linux-arm64/ 2>/dev/null || true
-      - cp README* {{.BIN_DIR}}/ap-linux-arm64/ 2>/dev/null || true
-      - upx --best {{.BIN_DIR}}/ap-linux-arm64/bin/*
-
-  build:components:
-    summary: Builds git-remote and tsbundler for Linux
-    cmds:
-      - |
-        echo "Building Linux components for {{.ARCH}}..."
-        CGO_ENABLED=0 GOOS=linux GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/git-remote-ap-linux-{{.ARCH}} ./cli/cmd/git-remote-encore
-        CGO_ENABLED=0 GOOS=linux GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/tsbundler-ap-linux-{{.ARCH}} ./cli/cmd/tsbundler-encore

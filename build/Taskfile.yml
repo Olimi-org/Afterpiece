@@ -33,32 +33,49 @@ tasks:
     cmds:
       - go test -tags=dev_build ./...
 
-  # Linting tasks
   lint:go:
     summary: Runs Go linters
     cmds:
       - golangci-lint run
 
-  # Formatting tasks
   fmt:go:
     summary: Formats Go code
     cmds:
       - go fmt ./...
       - goimports -w .
 
-  # Build helpers
-  build:go:binary:
-    summary: Builds a Go binary with specified parameters
+  build:platform:
+    summary: Builds for a specific platform and arch
     internal: true
     vars:
-      BUILD_CMD: go build
-      LDFLAGS: '{{.LDFLAGS | default "-s -w"}}'
-      BUILD_FLAGS: '{{.BUILD_FLAGS | default "-trimpath -tags=netgo"}}'
-      OUTPUT: "{{.OUTPUT}}"
-      PACKAGE: "{{.PACKAGE}}"
+      EXE_SUFFIX: '{{if eq .PLATFORM "windows"}}.exe{{end}}'
+      DIST_DIR: "{{.BIN_DIR}}/{{.APP_NAME}}-{{.PLATFORM}}-{{.ARCH}}"
+    deps:
+      - task: build:components
+        vars:
+          PLATFORM: "{{.PLATFORM}}"
+          ARCH: "{{.ARCH}}"
+          EXE_SUFFIX: '{{if eq .PLATFORM "windows"}}.exe{{end}}'
     cmds:
-      - '{{.BUILD_CMD}} -ldflags="{{.LDFLAGS}}" {{.BUILD_FLAGS}} -o {{.OUTPUT}} {{.PACKAGE}}'
+      - mkdir -p {{.DIST_DIR}}/bin
+      - CGO_ENABLED=0 GOOS={{.PLATFORM}} GOARCH={{.ARCH}} go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.DIST_DIR}}/bin/{{.APP_NAME}}{{.EXE_SUFFIX}} {{.CLI_PACKAGE}}
+      - mv {{.BIN_DIR}}/git-remote-{{.APP_NAME}}-{{.PLATFORM}}-{{.ARCH}}{{.EXE_SUFFIX}} {{.DIST_DIR}}/bin/git-remote-{{.APP_NAME}}{{.EXE_SUFFIX}} 2>/dev/null || true
+      - mv {{.BIN_DIR}}/tsbundler-{{.APP_NAME}}-{{.PLATFORM}}-{{.ARCH}}{{.EXE_SUFFIX}} {{.DIST_DIR}}/bin/tsbundler-{{.APP_NAME}}{{.EXE_SUFFIX}} 2>/dev/null || true
+      - mv {{.BIN_DIR}}/sqlc{{.EXE_SUFFIX}} {{.DIST_DIR}}/bin/sqlc{{.EXE_SUFFIX}} 2>/dev/null || true
+      - cp -r {{.GO_RUNTIME}}/* {{.DIST_DIR}}/{{.GO_RUNTIME}}/ 2>/dev/null || true
+      - mkdir -p {{.DIST_DIR}}/runtimes/
+      - cp -r runtimes/* {{.DIST_DIR}}/runtimes/ 2>/dev/null || true
+      - cp LICENSE* {{.DIST_DIR}}/ 2>/dev/null || true
+      - cp README* {{.DIST_DIR}}/ 2>/dev/null || true
+      - 'if [ "{{.PLATFORM}}" != "darwin" ]; then upx --best {{.DIST_DIR}}/bin/*{{.EXE_SUFFIX}}; fi'
 
-
-
-
+  build:components:
+    summary: Builds git-remote and tsbundler for a platform
+    internal: true
+    vars:
+      EXE_SUFFIX: '{{if eq .PLATFORM "windows"}}.exe{{end}}'
+    cmds:
+      - |
+        echo "Building {{.PLATFORM}} components for {{.ARCH}}..."
+        CGO_ENABLED=0 GOOS={{.PLATFORM}} GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/git-remote-{{.APP_NAME}}-{{.PLATFORM}}-{{.ARCH}}{{.EXE_SUFFIX}} {{.GIT_REMOTE_PACKAGE}}
+        CGO_ENABLED=0 GOOS={{.PLATFORM}} GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/tsbundler-{{.APP_NAME}}-{{.PLATFORM}}-{{.ARCH}}{{.EXE_SUFFIX}} {{.TSBUNDLER_PACKAGE}}

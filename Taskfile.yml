@@ -8,10 +8,14 @@ includes:
 
 vars:
   APP_NAME: "ap"
+  APP_TITLE: "Afterpiece"
   BIN_DIR: "dist"
   VERSION: '{{.VERSION | default "dev"}}'
-  ENCORE_GO_VERSION: '{{.ENCORE_GO_VERSION | default "ap-go1.23.0"}}'
-
+  GO_RUNTIME: "ap-go"
+  GO_RUNTIME_VERSION: '{{.GO_RUNTIME_VERSION | default "ap-go1.23.0"}}'
+  CLI_PACKAGE: "./cli/cmd/afterpiece"
+  GIT_REMOTE_PACKAGE: "./cli/cmd/git-remote-encore"
+  TSBUNDLER_PACKAGE: "./cli/cmd/tsbundler-encore"
 
 tasks:
   default:
@@ -25,7 +29,7 @@ tasks:
       - task: common:setup
 
   build:
-    summary: Builds Encore CLI for current platform
+    summary: Builds CLI for current platform
     cmds:
       - task: "{{OS}}:build"
 
@@ -42,7 +46,7 @@ tasks:
     summary: Cleans build artifacts
     cmds:
       - rm -rf {{.BIN_DIR}}
-      - rm -rf ap-go
+      - rm -rf {{.GO_RUNTIME}}
       - rm -f *.tar.gz *.zip
 
   clean:all:
@@ -55,30 +59,28 @@ tasks:
   version:
     summary: Shows current version
     cmds:
-      - 'echo "Afterpiece version: {{.VERSION}}"'
-      - 'echo "AP-Go version: {{.ENCORE_GO_VERSION}}"'
+      - 'echo "{{.APP_TITLE}} version: {{.VERSION}}"'
+      - 'echo "{{.GO_RUNTIME}} version: {{.GO_RUNTIME_VERSION}}"'
 
   deps:
     summary: Downloads all dependencies
     cmds:
       - task: common:setup
 
-  # Development helpers
   dev:
-    summary: Runs Encore in development mode
+    summary: Runs in development mode
     deps:
       - task: build:cli
     cmds:
-      - ./{{.BIN_DIR}}/encore dev
+      - ./{{.BIN_DIR}}/{{.APP_NAME}} dev
 
   run:
-    summary: Runs built Encore binary
+    summary: Runs built binary
     deps:
       - task: build:cli
     cmds:
-      - ./{{.BIN_DIR}}/encore {{.CLI_ARGS}}
+      - ./{{.BIN_DIR}}/{{.APP_NAME}} {{.CLI_ARGS}}
 
-  # Linting and formatting
   lint:
     summary: Runs linters
     cmds:
