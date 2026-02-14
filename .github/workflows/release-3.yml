@@ -58,8 +58,8 @@ jobs:
         shell: bash
         run: |
           echo "Downloading latest Ap-Go fork for ${{ matrix.platform }}_${{ matrix.arch }}"
-          mkdir -p ap-go
-          curl -L "https://github.com/Olimi-org/ap-go/releases/latest/download/${{ matrix.platform }}_${{ matrix.arch }}.tar.gz" | tar -C ap-go -xzf -
+          curl -L "https://github.com/Olimi-org/ap-go/releases/latest/download/${{ matrix.platform }}_${{ matrix.arch }}.tar.gz" | tar -C . -xzf -
+          mv encore-go ap-go
           echo "Go fork downloaded to ap-go/"
           ls -la ap-go/
 
