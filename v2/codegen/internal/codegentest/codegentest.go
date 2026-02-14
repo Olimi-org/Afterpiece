@@ -59,7 +59,7 @@ func Run(t *testing.T, fn func(*codegen.Generator, *app.Desc)) {
 			p := parser.NewParser(tc.Context)
 			parserResult := p.Parse()
 			gen := codegen.New(tc.Context, nil)
-			appDesc := app.ValidateAndDescribe(tc.Context, parserResult)
+			appDesc := app.ValidateAndDescribe(tc.Context, p.SchemaParser(), parserResult)
 
 			// Run the codegen
 			fn(gen, appDesc)

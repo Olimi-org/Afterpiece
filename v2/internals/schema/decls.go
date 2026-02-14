@@ -2,6 +2,7 @@ package schema
 
 import (
 	"go/ast"
+	"go/constant"
 	"slices"
 
 	"encr.dev/pkg/option"
@@ -36,6 +37,8 @@ const (
 	DeclType DeclKind = iota
 	// DeclFunc represents a func declaration.
 	DeclFunc
+	// DeclConst represents a constant declaration.
+	DeclConst
 )
 
 // TypeDecl represents a type declaration.
@@ -117,6 +120,38 @@ func (d *FuncDecl) DeclaredIn() *pkginfo.File       { return d.File }
 func (d *FuncDecl) ASTNode() ast.Node               { return d.AST }
 func (d *FuncDecl) String() string                  { return d.File.Pkg.Name + "." + d.Name }
 func (d *FuncDecl) TypeParameters() []DeclTypeParam { return d.TypeParams }
+
+// ConstDecl represents a constant declaration.
+type ConstDecl struct {
+	AST  *ast.ValueSpec
+	Info *pkginfo.PkgDeclInfo
+	File *pkginfo.File
+	Name string
+	Doc  string
+
+	// Type is the resolved type of the constant (e.g., BuiltinType for int, string).
+	Type Type
+
+	// Value is the constant's value.
+	Value constant.Value
+}
+
+func (*ConstDecl) Kind() DeclKind                    { return DeclConst }
+func (d *ConstDecl) DeclaredIn() *pkginfo.File       { return d.File }
+func (d *ConstDecl) ASTNode() ast.Node               { return d.AST }
+func (d *ConstDecl) String() string                  { return d.File.Pkg.Name + "." + d.Name }
+func (d *ConstDecl) TypeParameters() []DeclTypeParam { return nil }
+func (d *ConstDecl) PkgName() option.Option[string]  { return option.Some(d.Name) }
+
+// EnumDecl represents an enum type (a type with associated constant values).
+type EnumDecl struct {
+	// TypeDecl is the underlying type declaration (e.g., `type Status int`).
+	TypeDecl *TypeDecl
+
+	// Values are the constant values associated with this enum type.
+	Values []*ConstDecl
+}
+
 func (d *FuncDecl) PkgName() option.Option[string] {
 	if d.Recv.Empty() {
 		return option.Some(d.Name)

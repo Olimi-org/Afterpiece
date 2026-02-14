@@ -28,6 +28,10 @@ const (
 	AuthHandler
 	Middleware
 	ServiceStruct
+
+	// Exported Constants
+	Constant
+	Enum
 )
 
 type Resource interface {

@@ -16,7 +16,10 @@ func getNamedTypes(md *meta.Data, set clientgentypes.ServiceSet) *typeRegistry {
 		namespaces: make(map[string][]*schema.Decl),
 		seenDecls:  make(map[uint32]bool),
 		declRefs:   make(map[uint32]map[uint32]bool),
+		constants:  make(map[string][]*schema.ConstantDecl),
+		enums:      make(map[string][]*schema.EnumDecl),
 	}
+
 	for _, svc := range md.Svcs {
 		if !set.Has(svc.Name) {
 			continue
@@ -34,6 +37,42 @@ func getNamedTypes(md *meta.Data, set clientgentypes.ServiceSet) *typeRegistry {
 		r.Visit(md.AuthHandler.Params)
 	}
 
+	for _, c := range md.Constants {
+		if c.PkgName == "" {
+			continue
+		}
+
+		r.constants[c.PkgName] = append(r.constants[c.PkgName], c)
+	}
+
+	for _, enum := range md.Enums {
+		if enum.PkgName == "" {
+			continue
+		}
+
+		r.enums[enum.PkgName] = append(r.enums[enum.PkgName], enum)
+	}
+
+	// Filter out any named types that are also enums to avoid duplicate definitions
+	for pkgName, enums := range r.enums {
+		enumNames := make(map[string]bool, len(enums))
+		for _, e := range enums {
+			enumNames[e.Name] = true
+		}
+
+		if decls, ok := r.namespaces[pkgName]; ok {
+			// Filter in place
+			n := 0
+			for _, d := range decls {
+				if !enumNames[d.Name] {
+					decls[n] = d
+					n++
+				}
+			}
+			r.namespaces[pkgName] = decls[:n]
+		}
+	}
+
 	return r
 }
 
@@ -45,6 +84,8 @@ type typeRegistry struct {
 	seenDecls  map[uint32]bool
 	declRefs   map[uint32]map[uint32]bool // tracks which decls reference which other decls
 	currDecl   *schema.Decl               // may be nil
+	constants  map[string][]*schema.ConstantDecl
+	enums      map[string][]*schema.EnumDecl
 }
 
 func (v *typeRegistry) Decls(name string) []*schema.Decl {
@@ -58,6 +99,14 @@ func (v *typeRegistry) Namespaces() []string {
 	}
 	sort.Strings(nss)
 	return nss
+}
+
+func (v *typeRegistry) Constants(pkgName string) []*schema.ConstantDecl {
+	return v.constants[pkgName]
+}
+
+func (v *typeRegistry) Enums(pkgName string) []*schema.EnumDecl {
+	return v.enums[pkgName]
 }
 
 func (v *typeRegistry) Visit(typ *schema.Type) {
