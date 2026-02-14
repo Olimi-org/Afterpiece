@@ -125,7 +125,7 @@ func encoreGoRoot() string {
 	alternativeEncoreGoPath != "" {
 		return alternativeEncoreGoPath
 	} else if root, ok := determineRoot(); ok {
-		return filepath.Join(root, "encore-go")
+		return filepath.Join(root, "ap-go")
 	}
 	return ""
 }
@@ -177,8 +177,8 @@ func determineRoot() (root string, ok bool) {
 		}
 
 		root := filepath.Dir(filepath.Dir(exe))
-		// Heuristic: check if "encore-go" and "runtime" dirs exist in this location.
-		_, err1 := os.Stat(filepath.Join(root, "encore-go"))
+		// Heuristic: check if "ap-go" and "runtime" dirs exist in this location.
+		_, err1 := os.Stat(filepath.Join(root, "ap-go"))
 		_, err2 := os.Stat(filepath.Join(root, "runtimes", "go"))
 		if err1 == nil && err2 == nil {
 			return root, true

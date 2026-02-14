@@ -8,4 +8,4 @@ ADD scripts /scripts
 RUN bash /scripts/install.sh
 RUN bash /scripts/godeps.sh
 
-ENV ENCORE_GOROOT=/encore-release/encore-go
+ENV ENCORE_GOROOT=/encore-release/ap-go

@@ -14,7 +14,7 @@ type reqTrackImpl interface {
 }
 
 // encoreG tracks per-goroutine Encore-specific data.
-// This must match the definition in the encore-go runtime.
+// This must match the definition in the ap-go runtime.
 type encoreG struct {
 	// op is the current operation the goroutine is a part of.
 	op *encoreOp
@@ -27,7 +27,7 @@ type encoreG struct {
 }
 
 // encoreOp represents an Encore operation.
-// This must match the definition in the encore-go runtime.
+// This must match the definition in the ap-go runtime.
 type encoreOp struct {
 	// t is the RequestTracker this is part of.
 	t *RequestTracker

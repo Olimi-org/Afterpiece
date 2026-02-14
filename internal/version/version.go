@@ -13,7 +13,7 @@ import (
 	"encr.dev/internal/env"
 )
 
-// Version is the version of the encore binary.
+// Version is the version of the Afterpiece binary.
 // It is set using `go build -ldflags "-X encr.dev/internal/version.Version=v1.2.3"`.
 var Version string
 
