@@ -199,7 +199,7 @@ func (b *builder) generateTestSpec(testCfg *GenerateTestSpecConfig) *TestSpec {
 		}
 	}
 
-	// prefix PATH with encore-go, so it doesnt conflict with other installed go versions
+	// prefix PATH with ap-go, so it doesnt conflict with other installed go versions
 	// if not set causes problems when running cover tests in go
 	path := goroot.Join("bin").ToIO() + string(filepath.ListSeparator) + originalPath
 	environ = append(environ, "PATH="+path)

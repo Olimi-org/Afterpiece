@@ -19,16 +19,16 @@ tasks:
         vars:
           ARCH: amd64
     cmds:
-      - mkdir -p {{.BIN_DIR}}/encore-darwin-amd64/bin
-      - CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/encore-darwin-amd64/bin/encore ./cli/cmd/afterpiece
-      - mv {{.BIN_DIR}}/git-remote-encore-darwin-amd64 {{.BIN_DIR}}/encore-darwin-amd64/bin/git-remote-encore 2>/dev/null || true
-      - mv {{.BIN_DIR}}/tsbundler-encore-darwin-amd64 {{.BIN_DIR}}/encore-darwin-amd64/bin/tsbundler-encore 2>/dev/null || true
-      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/encore-darwin-amd64/bin/sqlc 2>/dev/null || true
-      - cp -r encore-go/* {{.BIN_DIR}}/encore-darwin-amd64/encore-go/ 2>/dev/null || true
-      - cp LICENSE* {{.BIN_DIR}}/encore-darwin-amd64/ 2>/dev/null || true
-      - cp README* {{.BIN_DIR}}/encore-darwin-amd64/ 2>/dev/null || true
-      - mkdir -p {{.BIN_DIR}}/encore-darwin-amd64/runtimes/
-      - cp -r runtimes/* {{.BIN_DIR}}/encore-darwin-amd64/runtimes/ 2>/dev/null || true
+      - mkdir -p {{.BIN_DIR}}/ap-darwin-amd64/bin
+      - CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/ap-darwin-amd64/bin/ap ./cli/cmd/afterpiece
+      - mv {{.BIN_DIR}}/git-remote-ap-darwin-amd64 {{.BIN_DIR}}/ap-darwin-amd64/bin/git-remote-ap 2>/dev/null || true
+      - mv {{.BIN_DIR}}/tsbundler-ap-darwin-amd64 {{.BIN_DIR}}/ap-darwin-amd64/bin/tsbundler-ap 2>/dev/null || true
+      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/ap-darwin-amd64/bin/sqlc 2>/dev/null || true
+      - cp -r ap-go/* {{.BIN_DIR}}/ap-darwin-amd64/ap-go/ 2>/dev/null || true
+      - cp LICENSE* {{.BIN_DIR}}/ap-darwin-amd64/ 2>/dev/null || true
+      - cp README* {{.BIN_DIR}}/ap-darwin-amd64/ 2>/dev/null || true
+      - mkdir -p {{.BIN_DIR}}/ap-darwin-amd64/runtimes/
+      - cp -r runtimes/* {{.BIN_DIR}}/ap-darwin-amd64/runtimes/ 2>/dev/null || true
 
   build:arm64:
     summary: Builds Encore for macOS ARM64
@@ -37,16 +37,16 @@ tasks:
         vars:
           ARCH: arm64
     cmds:
-      - mkdir -p {{.BIN_DIR}}/encore-darwin-arm64/bin
-      - CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/encore-darwin-arm64/bin/encore ./cli/cmd/afterpiece
-      - mv {{.BIN_DIR}}/git-remote-encore-darwin-arm64 {{.BIN_DIR}}/encore-darwin-arm64/bin/git-remote-encore 2>/dev/null || true
-      - mv {{.BIN_DIR}}/tsbundler-encore-darwin-arm64 {{.BIN_DIR}}/encore-darwin-arm64/bin/tsbundler-encore 2>/dev/null || true
-      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/encore-darwin-arm64/bin/sqlc 2>/dev/null || true
-      - cp -r encore-go/* {{.BIN_DIR}}/encore-darwin-arm64/encore-go/ 2>/dev/null || true
-      - cp LICENSE* {{.BIN_DIR}}/encore-darwin-arm64/ 2>/dev/null || true
-      - cp README* {{.BIN_DIR}}/encore-darwin-arm64/ 2>/dev/null || true
-      - mkdir -p {{.BIN_DIR}}/encore-darwin-arm64/runtimes/
-      - cp -r runtimes/* {{.BIN_DIR}}/encore-darwin-arm64/runtimes/ 2>/dev/null || true
+      - mkdir -p {{.BIN_DIR}}/ap-darwin-arm64/bin
+      - CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X encr.dev/internal/version.Version={{.VERSION}}" -trimpath -o {{.BIN_DIR}}/ap-darwin-arm64/bin/ap ./cli/cmd/afterpiece
+      - mv {{.BIN_DIR}}/git-remote-ap-darwin-arm64 {{.BIN_DIR}}/ap-darwin-arm64/bin/git-remote-ap 2>/dev/null || true
+      - mv {{.BIN_DIR}}/tsbundler-ap-darwin-arm64 {{.BIN_DIR}}/ap-darwin-arm64/bin/tsbundler-ap 2>/dev/null || true
+      - mv {{.BIN_DIR}}/sqlc {{.BIN_DIR}}/ap-darwin-arm64/bin/sqlc 2>/dev/null || true
+      - cp -r ap-go/* {{.BIN_DIR}}/ap-darwin-arm64/ap-go/ 2>/dev/null || true
+      - cp LICENSE* {{.BIN_DIR}}/ap-darwin-arm64/ 2>/dev/null || true
+      - cp README* {{.BIN_DIR}}/ap-darwin-arm64/ 2>/dev/null || true
+      - mkdir -p {{.BIN_DIR}}/ap-darwin-arm64/runtimes/
+      - cp -r runtimes/* {{.BIN_DIR}}/ap-darwin-arm64/runtimes/ 2>/dev/null || true
 
   build:cli:
     summary: Builds only the main CLI for macOS
@@ -58,5 +58,5 @@ tasks:
     cmds:
       - |
         echo "Building macOS components for {{.ARCH}}..."
-        CGO_ENABLED=0 GOOS=darwin GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/git-remote-encore-darwin-{{.ARCH}} ./cli/cmd/git-remote-encore
-        CGO_ENABLED=0 GOOS=darwin GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/tsbundler-encore-darwin-{{.ARCH}} ./cli/cmd/tsbundler-encore
+        CGO_ENABLED=0 GOOS=darwin GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/git-remote-ap-darwin-{{.ARCH}} ./cli/cmd/git-remote-encore
+        CGO_ENABLED=0 GOOS=darwin GOARCH={{.ARCH}} go build -trimpath -o {{.BIN_DIR}}/tsbundler-ap-darwin-{{.ARCH}} ./cli/cmd/tsbundler-encore

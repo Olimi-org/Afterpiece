@@ -54,14 +54,14 @@ jobs:
             echo "Using version from input: $VERSION"
           fi
 
-      - name: Download Encore-Go
+      - name: Download Ap-Go
         shell: bash
         run: |
           echo "Downloading latest Ap-Go fork for ${{ matrix.platform }}_${{ matrix.arch }}"
-          mkdir -p encore-go
-          curl -L "https://github.com/Olimi-org/ap-go/releases/latest/download/${{ matrix.platform }}_${{ matrix.arch }}.tar.gz" | tar -C encore-go -xzf -
-          echo "Go fork downloaded to encore-go/"
-          ls -la encore-go/
+          mkdir -p ap-go
+          curl -L "https://github.com/Olimi-org/ap-go/releases/latest/download/${{ matrix.platform }}_${{ matrix.arch }}.tar.gz" | tar -C ap-go -xzf -
+          echo "Go fork downloaded to ap-go/"
+          ls -la ap-go/
 
       - name: Download sqlc
         shell: bash
@@ -89,17 +89,17 @@ jobs:
       - name: Create archives
         shell: bash
         run: |
-          cd dist/encore-${{ matrix.platform }}-${{ matrix.arch }}
+          cd dist/ap-${{ matrix.platform }}-${{ matrix.arch }}
 
           # Create tar.gz with version in name for all platforms
-          tar -czf ../../encore-${{ steps.version.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz .
+          tar -czf ../../ap-${{ steps.version.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz .
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: encore-${{ matrix.platform }}-${{ matrix.arch }}
+          name: ap-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
-            encore-${{ steps.version.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+            ap-${{ steps.version.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
           retention-days: 30
 
   release:
@@ -119,14 +119,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
-          pattern: encore-*
+          pattern: ap-*
           merge-multiple: true
 
       - name: Organize release assets
         run: |
           mkdir -p release-assets
-          mv artifacts/encore-${{ steps.version.outputs.version }}-*.tar.gz release-assets/ 2>/dev/null || true
-          mv artifacts/encore-${{ steps.version.outputs.version }}-*.zip release-assets/ 2>/dev/null || true
+          mv artifacts/ap-${{ steps.version.outputs.version }}-*.tar.gz release-assets/ 2>/dev/null || true
+          mv artifacts/ap-${{ steps.version.outputs.version }}-*.zip release-assets/ 2>/dev/null || true
 
           cd release-assets
           sha256sum * > checksums.txt
@@ -141,7 +141,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Afterpiece ${{ steps.version.outputs.version }}
           body: |
-            ## Encore ${{ steps.version.outputs.version }}
+            ## Afterpiece ${{ steps.version.outputs.version }}
 
             ### Installation
             ```bash
@@ -149,11 +149,11 @@ jobs:
             ```
 
             ### Downloads
-            - **Linux AMD64**: `encore-${{ steps.version.outputs.version }}-linux-amd64.tar.gz`
-            - **Linux ARM64**: `encore-${{ steps.version.outputs.version }}-linux-arm64.tar.gz`
-            - **macOS AMD64**: `encore-${{ steps.version.outputs.version }}-darwin-amd64.tar.gz`
-            - **macOS ARM64**: `encore-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz`
-            - **Windows**: `encore-${{ steps.version.outputs.version }}-windows-amd64.tar.gz`
+            - **Linux AMD64**: `ap-${{ steps.version.outputs.version }}-linux-amd64.tar.gz`
+            - **Linux ARM64**: `ap-${{ steps.version.outputs.version }}-linux-arm64.tar.gz`
+            - **macOS AMD64**: `ap-${{ steps.version.outputs.version }}-darwin-amd64.tar.gz`
+            - **macOS ARM64**: `ap-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz`
+            - **Windows**: `ap-${{ steps.version.outputs.version }}-windows-amd64.tar.gz`
 
             ### Changelog
             TODO: Add changelog entries

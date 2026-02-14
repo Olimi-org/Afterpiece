@@ -7,10 +7,10 @@ includes:
   windows: ./build/windows/Taskfile.yml
 
 vars:
-  APP_NAME: "encore"
+  APP_NAME: "ap"
   BIN_DIR: "dist"
   VERSION: '{{.VERSION | default "dev"}}'
-  ENCORE_GO_VERSION: '{{.ENCORE_GO_VERSION | default "encore-go1.23.0"}}'
+  ENCORE_GO_VERSION: '{{.ENCORE_GO_VERSION | default "ap-go1.23.0"}}'
 
 
 tasks:
@@ -42,7 +42,7 @@ tasks:
     summary: Cleans build artifacts
     cmds:
       - rm -rf {{.BIN_DIR}}
-      - rm -rf encore-go
+      - rm -rf ap-go
       - rm -f *.tar.gz *.zip
 
   clean:all:
@@ -55,8 +55,8 @@ tasks:
   version:
     summary: Shows current version
     cmds:
-      - 'echo "Encore version: {{.VERSION}}"'
-      - 'echo "Encore-Go version: {{.ENCORE_GO_VERSION}}"'
+      - 'echo "Afterpiece version: {{.VERSION}}"'
+      - 'echo "AP-Go version: {{.ENCORE_GO_VERSION}}"'
 
   deps:
     summary: Downloads all dependencies
