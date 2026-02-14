@@ -133,7 +133,7 @@ Afterpiece comes with several built-in tools to help with testing:
 Everything needed to develop and deploy Afterpiece applications is Open Source, including the backend framework, parser, compiler, runtime, and CLI.
 This includes all code needed for local development and everything that runs in your application when it is deployed.
 
-The CLI also provides a mechanism to generate Docker images for your application, so you can easily self-host your application. [Learn more in the docs](https://encore.dev/docs/ts/self-host/build).
+The CLI also provides a mechanism to generate Docker images for your application, so you can easily self-host your application.
 
 ## Relationship with Encore
 
