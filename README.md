@@ -3,7 +3,7 @@
 
 
 <b>Go-only fork of <a href="https://github.com/encoredev/encore">Encore</a></b><br/>
-<b>Open Source Framework for creating type-safe distributed systems with declarative infrastructure</b><br/>
+<b>Open-Source Framework for creating type-safe distributed systems with declarative infrastructure</b><br/>
 </p>
 
 Afterpiece is a Go-only fork of [Encore](https://github.com/encoredev/encore), focused exclusively on the Go backend framework. It provides the same powerful features for creating microservices and type-safe APIs, with a declarative approach to define infrastructure in code.
@@ -12,7 +12,7 @@ Afterpiece is a Go-only fork of [Encore](https://github.com/encoredev/encore), f
 
 - **Backend Framework:** Simplified Go-only framework for creating microservices and type-safe APIs with declarative infrastructure.
 - **Local Development:** CLI automatically manages local infrastructure and provides a development dashboard with tracing, service catalog, and architecture diagrams.
-- **Infrastructure Integration:** Simplified integration with cloud infrastructure using the open source CLI.
+- **Infrastructure Integration:** Simplified integration with cloud infrastructure using the open-source CLI.
 
 **Note:** For TypeScript support, please use the upstream [Encore](https://github.com/encoredev/encore) project.
 
@@ -128,9 +128,9 @@ Afterpiece comes with several built-in tools to help with testing:
    ```
 3. **Explore the [Encore Documentation](https://encore.dev/docs/go)** to learn more about the framework features
 
-## Open Source
+## Open-Source
 
-Everything needed to develop and deploy Afterpiece applications is Open Source, including the backend framework, parser, compiler, runtime, and CLI.
+Everything needed to develop and deploy Afterpiece applications is Open-Source, including the backend framework, parser, compiler, runtime, and CLI.
 This includes all code needed for local development and everything that runs in your application when it is deployed.
 
 The CLI also provides a mechanism to generate Docker images for your application, so you can easily self-host your application.

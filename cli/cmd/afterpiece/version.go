@@ -45,7 +45,7 @@ var versionCmd = &cobra.Command{
 				versionUpdateCmd.Run(cmd, args)
 			} else {
 				if ver.SecurityUpdate {
-					fmt.Println(aurora.Sprintf(aurora.Red("A security update is update available: %s -> %s\nUpdate with: ap version update"), version.Version, ver.Version()))
+					fmt.Println(aurora.Sprintf(aurora.Red("A security update is available: %s -> %s\nUpdate with: ap version update"), version.Version, ver.Version()))
 
 					if ver.SecurityNotes != "" {
 						fmt.Println(aurora.Sprintf(aurora.Yellow("%s"), ver.SecurityNotes))
