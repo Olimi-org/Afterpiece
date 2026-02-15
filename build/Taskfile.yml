@@ -62,9 +62,8 @@ tasks:
       - mv {{.BIN_DIR}}/git-remote-{{.APP_NAME}}-{{.PLATFORM}}-{{.ARCH}}{{.EXE_SUFFIX}} {{.DIST_DIR}}/bin/git-remote-{{.APP_NAME}}{{.EXE_SUFFIX}} 2>/dev/null || true
       - mv {{.BIN_DIR}}/tsbundler-{{.APP_NAME}}-{{.PLATFORM}}-{{.ARCH}}{{.EXE_SUFFIX}} {{.DIST_DIR}}/bin/tsbundler-{{.APP_NAME}}{{.EXE_SUFFIX}} 2>/dev/null || true
       - mv {{.BIN_DIR}}/sqlc{{.EXE_SUFFIX}} {{.DIST_DIR}}/bin/sqlc{{.EXE_SUFFIX}} 2>/dev/null || true
-      - cp -r {{.GO_RUNTIME}}/* {{.DIST_DIR}}/{{.GO_RUNTIME}}/ 2>/dev/null || true
-      - mkdir -p {{.DIST_DIR}}/runtimes/
-      - cp -r runtimes/* {{.DIST_DIR}}/runtimes/ 2>/dev/null || true
+      - mkdir -p {{.DIST_DIR}}/{{.GO_RUNTIME}} && cp -r {{.GO_RUNTIME}}/* {{.DIST_DIR}}/{{.GO_RUNTIME}}/ 2>/dev/null || true
+      - mkdir -p {{.DIST_DIR}}/runtimes/ && cp -r runtimes/* {{.DIST_DIR}}/runtimes/ 2>/dev/null || true
       - cp LICENSE* {{.DIST_DIR}}/ 2>/dev/null || true
       - cp README* {{.DIST_DIR}}/ 2>/dev/null || true
       - 'if [ "{{.PLATFORM}}" != "darwin" ]; then upx --best {{.DIST_DIR}}/bin/*{{.EXE_SUFFIX}}; fi'
