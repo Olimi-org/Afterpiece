@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"encr.dev/cli/cmd/afterpiece/cmdutil"
 	"encr.dev/cli/internal/jsonrpc2"
@@ -30,14 +29,9 @@ type handler struct {
 	// so we can clear them when the errors go away.
 	lastDiagURIs map[string]bool
 
-	// checkMu serializes check runs.
-	checkMu sync.Mutex
 	// cancelCheck cancels the in-progress check, if any.
+	// Protected by mu.
 	cancelCheck context.CancelFunc
-
-	// debounce timer for didChange events.
-	debounceMu    sync.Mutex
-	debounceTimer *time.Timer
 }
 
 func newHandler(daemon daemonpb.DaemonClient) *handler {
@@ -153,33 +147,29 @@ func (h *handler) handleDidOpen(ctx context.Context, reply jsonrpc2.Replier, req
 }
 
 func (h *handler) handleDidChange(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-	// Debounce didChange — wait 300ms before triggering a check.
-	h.debounceMu.Lock()
-	if h.debounceTimer != nil {
-		h.debounceTimer.Stop()
+	var params DidChangeTextDocumentParams
+	if err := unmarshalParams(req, &params); err != nil {
+		return reply(ctx, nil, err)
 	}
-	h.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
-		h.runCheck(context.Background())
-	})
-	h.debounceMu.Unlock()
+
+	// The daemon checks files on disk, not the in-memory buffer, so
+	// re-running the checker here would just re-check the saved version.
+	// Instead, clear any existing diagnostics for this file so that
+	// stale squiggles at potentially wrong positions don't mislead the user.
+	// Fresh diagnostics will arrive on the next save.
+	uri := params.TextDocument.URI
+	h.mu.Lock()
+	hadDiags := h.lastDiagURIs[uri]
+	h.mu.Unlock()
+
+	if hadDiags {
+		h.publishDiagnostics(ctx, uri, nil)
+	}
 
 	return reply(ctx, nil, nil)
 }
 
 func (h *handler) handleDidSave(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-	var params DidSaveTextDocumentParams
-	if err := unmarshalParams(req, &params); err != nil {
-		return reply(ctx, nil, err)
-	}
-
-	// Trigger a check immediately on save (cancel any debounced change check).
-	h.debounceMu.Lock()
-	if h.debounceTimer != nil {
-		h.debounceTimer.Stop()
-		h.debounceTimer = nil
-	}
-	h.debounceMu.Unlock()
-
 	go h.runCheck(ctx)
 	return reply(ctx, nil, nil)
 }
@@ -202,22 +192,19 @@ func (h *handler) handleDidClose(ctx context.Context, reply jsonrpc2.Replier, re
 func (h *handler) runCheck(ctx context.Context) {
 	h.mu.Lock()
 	checker := h.checker
-	h.mu.Unlock()
-
-	if checker == nil {
-		return
-	}
-
-	// Cancel any in-progress check.
-	h.checkMu.Lock()
+	// Cancel any in-progress check so we don't pile up.
 	if h.cancelCheck != nil {
 		h.cancelCheck()
 	}
 	checkCtx, cancel := context.WithCancel(ctx)
 	h.cancelCheck = cancel
-	h.checkMu.Unlock()
+	h.mu.Unlock()
 
 	defer cancel()
+
+	if checker == nil {
+		return
+	}
 
 	result, err := checker.Run(checkCtx)
 	if err != nil {
