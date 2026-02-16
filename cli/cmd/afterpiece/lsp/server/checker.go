@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rs/zerolog/log"
-
 	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
@@ -65,25 +63,20 @@ func (c *Checker) Run(ctx context.Context) (*CheckResult, error) {
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
-			// Stream closed — we're done.
-			break
+			break // stream closed
 		}
 
 		switch m := msg.Msg.(type) {
 		case *daemonpb.CommandMessage_Errors:
 			if m.Errors == nil || len(m.Errors.Errinsrc) == 0 {
-				// No errors (clear state).
 				continue
 			}
 
-			// Deserialize the errinsrc JSON into a generic structure.
-			// We can't import errinsrc.ErrInSrc directly due to internal package
-			// restrictions, so we unmarshal into a compatible anonymous struct.
 			var errList struct {
 				List []errInSrc `json:"list"`
 			}
 			if err := json.Unmarshal(m.Errors.Errinsrc, &errList); err != nil {
-				log.Warn().Err(err).Msg("lsp: failed to unmarshal errinsrc")
+				lspLog("failed to unmarshal errinsrc: %v", err)
 				continue
 			}
 
@@ -92,10 +85,7 @@ func (c *Checker) Run(ctx context.Context) (*CheckResult, error) {
 			}
 
 		case *daemonpb.CommandMessage_Output:
-			// Log output for debugging.
-			if len(m.Output.Stderr) > 0 {
-				log.Debug().Str("stderr", string(m.Output.Stderr)).Msg("lsp: check output")
-			}
+			// Ignore output messages.
 
 		case *daemonpb.CommandMessage_Exit:
 			// Exit message — stop reading.
@@ -175,12 +165,16 @@ func (c *Checker) addDiagnostics(result *CheckResult, e *errInSrc) {
 			continue
 		}
 
-		severity := SeverityError
+		var severity DiagnosticSeverity
 		switch loc.Type {
+		case locTypeError:
+			severity = SeverityError
 		case locTypeWarning:
 			severity = SeverityWarning
 		case locTypeHelp:
 			severity = SeverityHint
+		default:
+			severity = SeverityError
 		}
 
 		text := message

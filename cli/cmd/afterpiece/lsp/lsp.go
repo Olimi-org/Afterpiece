@@ -17,10 +17,9 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
 
-		appRoot, _ := cmdutil.AppRoot()
 		daemon := cmdutil.ConnectDaemon(ctx)
 
-		lspServer := server.NewLSPServer(daemon, appRoot)
+		lspServer := server.NewLSPServer(daemon)
 
 		// Start blocks on stdio until the connection closes.
 		if err := lspServer.Start(ctx); err != nil {

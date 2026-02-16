@@ -3,21 +3,27 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/fs"
+	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
+	"encr.dev/cli/cmd/afterpiece/cmdutil"
 	"encr.dev/cli/internal/jsonrpc2"
+	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
 // handler implements the LSP message handling logic.
 type handler struct {
-	conn    jsonrpc2.Conn
-	checker *Checker
+	conn   jsonrpc2.Conn
+	daemon daemonpb.DaemonClient
 
-	// mu protects openFiles and lastDiagURIs.
+	// mu protects checker, openFiles, and lastDiagURIs.
 	mu sync.Mutex
+	// checker is lazily created after the initialize handshake resolves
+	// the app root from the editor's rootUri.
+	checker *Checker
 	// openFiles tracks currently open file URIs.
 	openFiles map[string]bool
 	// lastDiagURIs tracks URIs that had diagnostics in the last check run,
@@ -34,9 +40,9 @@ type handler struct {
 	debounceTimer *time.Timer
 }
 
-func newHandler(checker *Checker) *handler {
+func newHandler(daemon daemonpb.DaemonClient) *handler {
 	return &handler{
-		checker:      checker,
+		daemon:       daemon,
 		openFiles:    make(map[string]bool),
 		lastDiagURIs: make(map[string]bool),
 	}
@@ -45,13 +51,26 @@ func newHandler(checker *Checker) *handler {
 // setConn sets the JSON-RPC connection used for sending notifications.
 func (h *handler) setConn(conn jsonrpc2.Conn) {
 	h.conn = conn
+	logConn = conn
+}
+
+// logConn is set once the JSON-RPC connection is established, allowing
+// lspLog() to send window/logMessage notifications to the editor.
+var logConn jsonrpc2.Conn
+
+// lspLog sends a message to the editor via LSP window/logMessage.
+func lspLog(format string, args ...any) {
+	if c := logConn; c != nil {
+		_ = c.Notify(context.Background(), "window/logMessage", LogMessageParams{
+			Type:    MessageLog,
+			Message: fmt.Sprintf(format, args...),
+		})
+	}
 }
 
 // Handle is the jsonrpc2.Handler implementation.
 func (h *handler) Handle(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-	method := req.Method()
-
-	switch method {
+	switch req.Method() {
 	case "initialize":
 		return h.handleInitialize(ctx, reply, req)
 	case "initialized":
@@ -69,13 +88,38 @@ func (h *handler) Handle(ctx context.Context, reply jsonrpc2.Replier, req jsonrp
 	case "textDocument/didClose":
 		return h.handleDidClose(ctx, reply, req)
 	default:
-		// For unknown methods, reply with method not found for calls,
-		// and silently ignore notifications.
 		return jsonrpc2.MethodNotFound(ctx, reply, req)
 	}
 }
 
 func (h *handler) handleInitialize(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	var params InitializeParams
+	if err := unmarshalParams(req, &params); err != nil {
+		return reply(ctx, nil, err)
+	}
+
+	rootDir := uriToFilePath(params.RootURI)
+	if rootDir == "" {
+		return reply(ctx, nil, fmt.Errorf("initialize: missing rootUri"))
+	}
+
+	// Try upward search first (handles case where editor opens a subdirectory).
+	appRoot, _, err := cmdutil.FindAppRootFromDir(rootDir)
+	if err != nil {
+		// Fall back to downward search for monorepo layouts where
+		// encore.app is in a subdirectory of the workspace root.
+		appRoot = findAppRootDown(rootDir, 5)
+	}
+
+	h.mu.Lock()
+	if appRoot != "" {
+		h.checker = NewChecker(h.daemon, appRoot)
+		lspLog("initialized with app root: %s", appRoot)
+	} else {
+		lspLog("no encore.app found from rootUri: %s", params.RootURI)
+	}
+	h.mu.Unlock()
+
 	result := InitializeResult{
 		Capabilities: ServerCapabilities{
 			TextDocumentSync: &TextDocumentSyncOptions{
@@ -87,7 +131,7 @@ func (h *handler) handleInitialize(ctx context.Context, reply jsonrpc2.Replier, 
 			},
 		},
 		ServerInfo: &ServerInfo{
-			Name:    "encore-lsp",
+			Name:    "afterpiece-lsp",
 			Version: "0.1.0",
 		},
 	}
@@ -104,11 +148,7 @@ func (h *handler) handleDidOpen(ctx context.Context, reply jsonrpc2.Replier, req
 	h.openFiles[params.TextDocument.URI] = true
 	h.mu.Unlock()
 
-	log.Debug().Str("uri", params.TextDocument.URI).Msg("lsp: didOpen")
-
-	// Trigger a check.
 	go h.runCheck(ctx)
-
 	return reply(ctx, nil, nil)
 }
 
@@ -132,8 +172,6 @@ func (h *handler) handleDidSave(ctx context.Context, reply jsonrpc2.Replier, req
 		return reply(ctx, nil, err)
 	}
 
-	log.Debug().Str("uri", params.TextDocument.URI).Msg("lsp: didSave")
-
 	// Trigger a check immediately on save (cancel any debounced change check).
 	h.debounceMu.Lock()
 	if h.debounceTimer != nil {
@@ -143,7 +181,6 @@ func (h *handler) handleDidSave(ctx context.Context, reply jsonrpc2.Replier, req
 	h.debounceMu.Unlock()
 
 	go h.runCheck(ctx)
-
 	return reply(ctx, nil, nil)
 }
 
@@ -157,16 +194,20 @@ func (h *handler) handleDidClose(ctx context.Context, reply jsonrpc2.Replier, re
 	delete(h.openFiles, params.TextDocument.URI)
 	h.mu.Unlock()
 
-	log.Debug().Str("uri", params.TextDocument.URI).Msg("lsp: didClose")
-
-	// Clear diagnostics for the closed file.
 	h.publishDiagnostics(ctx, params.TextDocument.URI, nil)
-
 	return reply(ctx, nil, nil)
 }
 
 // runCheck triggers a full project check and publishes diagnostics.
 func (h *handler) runCheck(ctx context.Context) {
+	h.mu.Lock()
+	checker := h.checker
+	h.mu.Unlock()
+
+	if checker == nil {
+		return
+	}
+
 	// Cancel any in-progress check.
 	h.checkMu.Lock()
 	if h.cancelCheck != nil {
@@ -178,19 +219,15 @@ func (h *handler) runCheck(ctx context.Context) {
 
 	defer cancel()
 
-	log.Debug().Msg("lsp: running check...")
-
-	result, err := h.checker.Run(checkCtx)
+	result, err := checker.Run(checkCtx)
 	if err != nil {
-		if checkCtx.Err() != nil {
-			// Check was cancelled, don't log.
-			return
+		if checkCtx.Err() == nil {
+			lspLog("check failed: %v", err)
 		}
-		log.Warn().Err(err).Msg("lsp: check failed")
 		return
 	}
 
-	// Collect the set of URIs that have diagnostics in this run.
+	// Publish diagnostics for files with errors.
 	currentURIs := make(map[string]bool)
 	for uri, diags := range result.Diagnostics {
 		currentURIs[uri] = true
@@ -208,8 +245,6 @@ func (h *handler) runCheck(ctx context.Context) {
 			h.publishDiagnostics(checkCtx, uri, nil)
 		}
 	}
-
-	log.Debug().Int("files_with_errors", len(result.Diagnostics)).Msg("lsp: check complete")
 }
 
 // publishDiagnostics sends a textDocument/publishDiagnostics notification.
@@ -228,7 +263,7 @@ func (h *handler) publishDiagnostics(ctx context.Context, uri string, diags []Di
 	}
 
 	if err := h.conn.Notify(ctx, "textDocument/publishDiagnostics", params); err != nil {
-		log.Warn().Err(err).Str("uri", uri).Msg("lsp: failed to publish diagnostics")
+		lspLog("failed to publish diagnostics: %v", err)
 	}
 }
 
@@ -239,4 +274,39 @@ func unmarshalParams(req jsonrpc2.Request, v interface{}) error {
 		return nil
 	}
 	return json.Unmarshal(params, v)
+}
+
+// findAppRootDown searches downward from dir for an encore.app file,
+// up to maxDepth levels deep. Returns the directory containing encore.app,
+// or "" if not found.
+func findAppRootDown(dir string, maxDepth int) string {
+	var found string
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable dirs
+		}
+
+		// Check depth limit.
+		rel, _ := filepath.Rel(dir, path)
+		depth := len(filepath.SplitList(rel))
+		if depth > maxDepth {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		if !d.IsDir() && d.Name() == "encore.app" {
+			found = filepath.Dir(path)
+			return fs.SkipAll // stop walking
+		}
+
+		// Skip hidden and vendor directories.
+		if d.IsDir() && (d.Name()[0] == '.' || d.Name() == "vendor" || d.Name() == "node_modules") {
+			return fs.SkipDir
+		}
+
+		return nil
+	})
+	return found
 }

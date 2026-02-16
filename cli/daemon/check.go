@@ -28,7 +28,13 @@ func (s *Server) Check(req *daemonpb.CheckRequest, stream daemonpb.Daemon_CheckS
 	exitCode := 0
 	if err != nil {
 		exitCode = 1
-		log.Error().Msg(err.Error())
+		// Send structured error data if available, so that consumers
+		// like the LSP server can extract file locations and diagnostics.
+		if errList := run.AsErrorList(err); errList != nil {
+			slog.Error(errList)
+		} else {
+			log.Error().Msg(err.Error())
+		}
 	}
 
 	if req.CodegenDebug && buildDir != "" {
