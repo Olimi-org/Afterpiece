@@ -11,7 +11,7 @@ type InitializeParams struct {
 	ProcessID             *int               `json:"processId"`
 	RootURI               string             `json:"rootUri"`
 	Capabilities          ClientCapabilities `json:"capabilities"`
-	InitializationOptions any        `json:"initializationOptions,omitempty"`
+	InitializationOptions any                `json:"initializationOptions,omitempty"`
 }
 
 type ClientCapabilities struct {
@@ -135,4 +135,25 @@ type Range struct {
 type Position struct {
 	Line      int `json:"line"`      // 0-based
 	Character int `json:"character"` // 0-based
+}
+
+// --- window/logMessage and window/showMessage ---
+
+type MessageType int
+
+const (
+	MessageError   MessageType = 1
+	MessageWarning MessageType = 2
+	MessageInfo    MessageType = 3
+	MessageLog     MessageType = 4
+)
+
+type LogMessageParams struct {
+	Type    MessageType `json:"type"`
+	Message string      `json:"message"`
+}
+
+type ShowMessageParams struct {
+	Type    MessageType `json:"type"`
+	Message string      `json:"message"`
 }

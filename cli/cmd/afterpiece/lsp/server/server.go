@@ -15,23 +15,23 @@ import (
 // LSPServer is an LSP server that runs Encore's check pipeline on file changes
 // and publishes diagnostics back to the editor.
 type LSPServer struct {
-	daemon  daemonpb.DaemonClient
-	appRoot string
-	conn    jsonrpc2.Conn
+	daemon daemonpb.DaemonClient
+	conn   jsonrpc2.Conn
 }
 
 // NewLSPServer creates a new LSP server that communicates with the given daemon.
-func NewLSPServer(daemon daemonpb.DaemonClient, appRoot string) *LSPServer {
+// The app root is resolved during the LSP initialize handshake from the editor's
+// rootUri, so it doesn't need to be known at construction time.
+func NewLSPServer(daemon daemonpb.DaemonClient) *LSPServer {
 	return &LSPServer{
-		daemon:  daemon,
-		appRoot: appRoot,
+		daemon: daemon,
 	}
 }
 
 // Start runs the LSP server, reading from stdin and writing to stdout.
 // It blocks until the context is cancelled or the connection is closed.
 func (s *LSPServer) Start(ctx context.Context) error {
-	log.Info().Str("app_root", s.appRoot).Msg("lsp: starting server")
+	log.Info().Msg("lsp: starting server")
 
 	// Create a stdio connection using LSP header framing.
 	// We wrap stdin/stdout in a net.Conn-compatible type for the jsonrpc2 stream.
@@ -44,8 +44,7 @@ func (s *LSPServer) Start(ctx context.Context) error {
 	conn := jsonrpc2.NewConn(stream)
 	s.conn = conn
 
-	checker := NewChecker(s.daemon, s.appRoot)
-	h := newHandler(checker)
+	h := newHandler(s.daemon)
 	h.setConn(conn)
 
 	// Start the connection handler.
