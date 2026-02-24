@@ -130,12 +130,26 @@ func Parse(errs *perr.List, cg *ast.CommentGroup) (dir *Directive, doc string, o
 
 	var dirs []*Directive
 	for _, c := range cg.List {
-		d, ok := ast.ParseDirective(c.Slash, c.Text)
-		if !ok || d.Tool != "encore" {
+		text := c.Text
+		trim := 0
+		if strings.HasPrefix(text, "//") {
+			after := text[2:]
+			trimmed := strings.TrimLeft(after, " \t")
+			if len(trimmed) < len(after) && (strings.HasPrefix(trimmed, "encore:") || strings.HasPrefix(trimmed, "ap:")) {
+				trim = len(after) - len(trimmed)
+				text = "//" + trimmed
+			}
+		}
+
+		d, ok := ast.ParseDirective(c.Slash, text)
+		if !ok || (d.Tool != "encore" && d.Tool != "ap") {
 			continue
 		}
 
-		dir, ok := parseOne(errs, d.Name, d.ArgsPos, d.Args)
+		// Mutate c.Text so that cg.Text() recognizes it as a directive and omits it.
+		c.Text = text
+
+		dir, ok := parseOne(errs, d.Name, d.ArgsPos+token.Pos(trim), d.Args)
 		if !ok {
 			return nil, "", false
 		}
