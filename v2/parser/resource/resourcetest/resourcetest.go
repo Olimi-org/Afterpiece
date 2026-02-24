@@ -14,6 +14,7 @@ import (
 
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/paths"
+	"encr.dev/v2/internals/parsectx"
 	"encr.dev/v2/internals/pkginfo"
 	"encr.dev/v2/internals/schema"
 	"encr.dev/v2/internals/testutil"
@@ -22,11 +23,12 @@ import (
 )
 
 type Case[R resource.Resource] struct {
-	Name     string
-	Imports  []string
-	Code     string
-	Want     R
-	WantErrs []string
+	Name         string
+	Imports      []string
+	Code         string
+	Want         R
+	WantErrs     []string
+	SetupContext func(*parsectx.Context)
 }
 
 func Run[R resource.Resource](t *testing.T, parser *resourceparser.Parser, tests []Case[R], cmpOpts ...cmp.Option) {
@@ -81,6 +83,9 @@ package foo
 				Context:      tc.Context,
 				SchemaParser: schemaParser,
 				Pkg:          pkg,
+			}
+			if test.SetupContext != nil {
+				test.SetupContext(tc.Context)
 			}
 			parser.Run(pass)
 			got := pass.Resources()

@@ -100,6 +100,19 @@ Migration files are created in a `migrations` directory within an Encore service
     └── todo_test.go                 // tests for todo service
 ```
 
+### Alternative Migration Strategies
+
+You can configure Encore to use [Atlas](https://atlasgo.io/) for managing your database migrations instead of the built-in `go-migrate` engine. To do this, add the following to your application configuration file (`encore.toml` or `afterpiece.toml`):
+
+```toml
+[migrations]
+strategy = "atlas"
+```
+
+When Atlas is enabled, the `Migrations` field within `sqldb.DatabaseConfig` must be omitted, since Atlas manages its own underlying migration directory configurations and connects via the `atlas.yaml` project file. If you attempt to specify a migration directory alongside the Atlas strategy, Encore will return a compilation error.
+
+During the Encore build and run processes, Encore will automatically shell out to the `atlas` CLI to apply migrations.
+
 ## Inserting data into databases
 
 Once you have created the database using `var mydb = sqldb.NewDatabase(...)` you can start inserting data into the database

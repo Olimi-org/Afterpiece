@@ -142,6 +142,9 @@ type BuildInfo struct {
 	// MainPkg is the existing main package to use, if any.
 	// If None a main package is generated.
 	MainPkg option.Option[paths.Pkg]
+
+	// MigrationStrategy is the app-level strategy for database migrations.
+	MigrationStrategy string
 }
 
 // Trace traces the execution of a function.

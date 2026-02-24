@@ -12,6 +12,7 @@ import (
 	"github.com/tailscale/hujson"
 
 	"encore.dev/appruntime/exported/experiments"
+	"encr.dev/pkg/tomlconfig"
 )
 
 // Name is the name of the Encore app file.
@@ -64,6 +65,18 @@ type File struct {
 	// LogLevel is the minimum log level for the app.
 	// If empty it defaults to "trace".
 	LogLevel string `json:"log_level,omitempty"`
+
+	// Migrations configures the database migration strategy.
+	Migrations Migrations `json:"migrations,omitempty"`
+}
+
+const (
+	MigrationStrategyGoMigrate = "go-migrate"
+	MigrationStrategyAtlas     = "atlas"
+)
+
+type Migrations struct {
+	Strategy string `json:"strategy,omitempty"`
 }
 
 type Build struct {
@@ -156,7 +169,30 @@ func Parse(data []byte) (*File, error) {
 }
 
 // ParseFile parses the app file located at path.
+// It will also check for afterpiece.toml and encore.toml in the same directory.
 func ParseFile(path string) (*File, error) {
+	dir := filepath.Dir(path)
+
+	// Check for afterpiece.toml first.
+	tomlPath := filepath.Join(dir, tomlconfig.Name)
+	if data, err := os.ReadFile(tomlPath); err == nil {
+		t, err := tomlconfig.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("appfile.ParseFile (afterpiece.toml): %w", err)
+		}
+		return convertToml(t), nil
+	}
+
+	// Check for encore.toml.
+	tomlPath = filepath.Join(dir, tomlconfig.NameOld)
+	if data, err := os.ReadFile(tomlPath); err == nil {
+		t, err := tomlconfig.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("appfile.ParseFile (encore.toml): %w", err)
+		}
+		return convertToml(t), nil
+	}
+
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return &File{}, nil
@@ -169,11 +205,73 @@ func ParseFile(path string) (*File, error) {
 // ParseFileStrict parses the app file located at path.
 // Unlike ParseFile, it returns an error if the file does not exist.
 func ParseFileStrict(path string) (*File, error) {
+	dir := filepath.Dir(path)
+
+	// Check for afterpiece.toml first.
+	tomlPath := filepath.Join(dir, tomlconfig.Name)
+	if data, err := os.ReadFile(tomlPath); err == nil {
+		t, err := tomlconfig.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("appfile.ParseFileStrict (afterpiece.toml): %w", err)
+		}
+		return convertToml(t), nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("appfile.ParseFileStrict: %w", err)
+	}
+
+	// Check for encore.toml.
+	tomlPath = filepath.Join(dir, tomlconfig.NameOld)
+	if data, err := os.ReadFile(tomlPath); err == nil {
+		t, err := tomlconfig.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("appfile.ParseFileStrict (encore.toml): %w", err)
+		}
+		return convertToml(t), nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("appfile.ParseFileStrict: %w", err)
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("appfile.ParseFileStrict: %w", err)
 	}
 	return Parse(data)
+}
+
+func convertToml(t *tomlconfig.File) *File {
+	f := &File{
+		ID:          t.ID,
+		Experiments: t.Experiments,
+		Lang:        Lang(t.Language),
+		LogLevel:    t.Log.Level,
+	}
+
+	if t.CORS != nil {
+		f.GlobalCORS = &CORS{
+			Debug:                          t.CORS.Debug,
+			AllowHeaders:                   t.CORS.AllowHeaders,
+			ExposeHeaders:                  t.CORS.ExposeHeaders,
+			AllowOriginsWithoutCredentials: t.CORS.AllowOriginsWithoutCredentials,
+			AllowOriginsWithCredentials:    t.CORS.AllowOriginsWithCredentials,
+		}
+	}
+
+	f.Build = Build{
+		CgoEnabled:    t.Build.CgoEnabled,
+		WorkerPooling: t.Build.WorkerPooling,
+		Docker: Docker{
+			BaseImage:         t.Build.Docker.BaseImage,
+			BundleSource:      t.Build.Docker.BundleSource,
+			WorkingDir:        t.Build.Docker.WorkingDir,
+			ProcessPerService: t.Build.Docker.ProcessPerService,
+		},
+	}
+
+	f.Migrations = Migrations{
+		Strategy: t.Migrations.Strategy,
+	}
+
+	return f
 }
 
 // Slug parses the app slug for the encore.app file located at path.

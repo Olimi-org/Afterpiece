@@ -3,6 +3,8 @@ package sqldb
 import (
 	"testing"
 
+	"encr.dev/pkg/appfile"
+	"encr.dev/v2/internals/parsectx"
 	"encr.dev/v2/parser/resource/resourcetest"
 )
 
@@ -57,6 +59,30 @@ var x = sqldb.NewDatabase("name", sqldb.DatabaseConfig{
 })
 `,
 			WantErrs: []string{`.*The migration path must be a relative path.*`},
+		},
+		{
+			Name: "atlas_strategy_optional_migrations",
+			Code: `
+var x = sqldb.NewDatabase("name", sqldb.DatabaseConfig{})
+`,
+			SetupContext: func(c *parsectx.Context) {
+				c.Build.MigrationStrategy = appfile.MigrationStrategyAtlas
+			},
+			Want: &Database{
+				Name: "name",
+			},
+		},
+		{
+			Name: "atlas_strategy_with_migrations_path",
+			Code: `
+var x = sqldb.NewDatabase("name", sqldb.DatabaseConfig{
+	Migrations: "some/migration/path",
+})
+`,
+			SetupContext: func(c *parsectx.Context) {
+				c.Build.MigrationStrategy = appfile.MigrationStrategyAtlas
+			},
+			WantErrs: []string{`.*A call to sqldb.NewDatabase must not specify the Migrations directory.*`},
 		},
 	}
 
