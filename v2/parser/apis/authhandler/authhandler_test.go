@@ -78,6 +78,57 @@ func Foo(ctx context.Context, p *Params) (auth.UID, error) {}
 				Param: Ptr(Named(TypeInfo("Params"))),
 			},
 		},
+		{
+			name:    "cookie_string_rejected",
+			imports: []string{"net/http"},
+			def: `
+type Params struct {
+	Token string ` + "`" + `cookie:"session_token"` + "`" + `
+}
+//encore:authhandler
+func Foo(ctx context.Context, p *Params) (auth.UID, error) {}
+`,
+			wantErrs: []string{`Invalid cookie field type`},
+		},
+		{
+			name:    "cookie_int_rejected",
+			imports: []string{"net/http"},
+			def: `
+type Params struct {
+	Count int ` + "`" + `cookie:"visit_count"` + "`" + `
+}
+//encore:authhandler
+func Foo(ctx context.Context, p *Params) (auth.UID, error) {}
+`,
+			wantErrs: []string{`Invalid cookie field type`},
+		},
+		{
+			name:    "cookie_http_cookie_accepted",
+			imports: []string{"net/http"},
+			def: `
+type Params struct {
+	Session *http.Cookie ` + "`" + `cookie:"session"` + "`" + `
+}
+//encore:authhandler
+func Foo(ctx context.Context, p *Params) (auth.UID, error) {}
+`,
+			want: &AuthHandler{
+				Decl: &schema.FuncDecl{
+					Name: "Foo",
+					Type: schema.FuncType{
+						Params: []schema.Param{
+							ctxParam,
+							Param(Ptr(Named(TypeInfo("Params")))),
+						},
+						Results: []schema.Param{
+							uidResult,
+							Param(Error()),
+						},
+					},
+				},
+				Param: Ptr(Named(TypeInfo("Params"))),
+			},
+		},
 	}
 
 	// testArchive renders the txtar archive to use for a given test.
