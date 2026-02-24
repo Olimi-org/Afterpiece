@@ -59,4 +59,12 @@ var (
 		"Unknown sqldb database",
 		"No database named %q was found in the application. Ensure it is created somewhere using sqldb.NewDatabase to be able to reference it.",
 	)
+	errNewDatabaseMissingMigrations = errRange.New(
+		"Missing database migrations directory",
+		"A call to sqldb.NewDatabase must specify the Migrations directory when strategy is not Atlas.",
+	)
+	errNewDatabaseAtlasNoMigrations = errRange.New(
+		"Invalid database migrations directory",
+		"A call to sqldb.NewDatabase must not specify the Migrations directory when the strategy is Atlas. Atlas manages its own migrations directory.",
+	)
 )

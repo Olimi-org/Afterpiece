@@ -90,6 +90,10 @@ func (*BuilderImpl) Parse(ctx context.Context, p builder.ParseParams) (*builder.
 			Errs:          errs,
 		}
 
+		if appFile, err := p.App.AppFile(); err == nil {
+			pc.Build.MigrationStrategy = appFile.Migrations.Strategy
+		}
+
 		parser := parser.NewParser(pc)
 		parserResult := parser.Parse()
 		appDesc := app.ValidateAndDescribe(pc, parserResult)

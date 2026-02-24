@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"encr.dev/pkg/appfile"
 
 	"github.com/cockroachdb/errors"
 	"github.com/golang-migrate/migrate/v4"
@@ -287,6 +290,24 @@ func (db *DB) doMigrate(ctx context.Context, cloudName, appRoot string, dbMeta *
 	}
 	uri := info.ConnURI(cloudName, admin)
 	db.log.Debug().Str("uri", uri).Msg("running migrations")
+
+	appConfigFile := filepath.Join(appRoot, appfile.Name)
+	if appFile, err := appfile.ParseFile(appConfigFile); err == nil && appFile.Migrations.Strategy == appfile.MigrationStrategyAtlas {
+		db.log.Info().Msg("delegating migrations to Atlas CLI")
+
+		// For atlas migrate we assume it manages its own migration directory
+		// We could pass --env encore or just apply
+		cmd := exec.CommandContext(ctx, "atlas", "migrate", "apply", "--url", uri)
+		cmd.Dir = appRoot
+
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("atlas migration failed: %v\n%s", err, string(out))
+		}
+		db.log.Info().Msgf("Atlas migration completed: %s", string(out))
+		return nil
+	}
+
 	pool, err := sql.Open("pgx", uri)
 	if err != nil {
 		return err

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/paths"
 	"encr.dev/v2/internals/pkginfo"
@@ -92,9 +93,35 @@ func parseDatabase(d parseutil.ReferenceInfo) {
 
 	// Decode the config
 	type decodedConfig struct {
-		Migrations string `literal:",required"`
+		Migrations string `literal:",optional"`
 	}
 	config := literals.Decode[decodedConfig](d.Pass.Errs, cfgLit, nil)
+
+	strategy := d.Pass.Context.Build.MigrationStrategy
+
+	if config.Migrations == "" {
+		if strategy != appfile.MigrationStrategyAtlas {
+			errs.Add(errNewDatabaseMissingMigrations.AtGoNode(d.Call))
+			return
+		}
+
+		// If using atlas and no migrations directory is provided,
+		// we just register the database without migrations.
+		db := &Database{
+			AST:          d.Call,
+			Pkg:          d.Pass.Pkg,
+			Name:         databaseName,
+			Doc:          d.Doc,
+			MigrationDir: "",
+			Migrations:   nil,
+		}
+		d.Pass.RegisterResource(db)
+		d.Pass.AddBind(d.File, d.Ident, db)
+		return
+	} else if strategy == appfile.MigrationStrategyAtlas {
+		errs.Add(errNewDatabaseAtlasNoMigrations.AtGoNode(cfgLit.Expr("Migrations")))
+		return
+	}
 
 	if path.IsAbs(config.Migrations) {
 		errs.Add(errNewDatabaseAbsPath.AtGoNode(cfgLit.Expr("Migrations")))
