@@ -56,6 +56,7 @@ type Docker struct {
 
 type Migrations struct {
 	Strategy string `toml:"strategy,omitempty"`
+	Auto     *bool  `toml:"auto,omitempty"`
 }
 
 // Parse parses the TOML config file data into a File.

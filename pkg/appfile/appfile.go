@@ -77,6 +77,7 @@ const (
 
 type Migrations struct {
 	Strategy string `json:"strategy,omitempty"`
+	Auto     *bool  `json:"auto,omitempty"`
 }
 
 type Build struct {
@@ -168,73 +169,51 @@ func Parse(data []byte) (*File, error) {
 	return &f, nil
 }
 
+// FindProjectConfig searches for a valid project configuration file
+// (afterpiece.toml, encore.toml, or encore.app) in the given directory.
+// It returns the path to the found file, or fs.ErrNotExist if none exist.
+func FindProjectConfig(dir string) (string, error) {
+	paths := []string{
+		filepath.Join(dir, tomlconfig.Name),
+		filepath.Join(dir, tomlconfig.NameOld),
+		filepath.Join(dir, Name),
+	}
+
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+
+	return "", fs.ErrNotExist
+}
+
 // ParseFile parses the app file located at path.
 // It will also check for afterpiece.toml and encore.toml in the same directory.
 func ParseFile(path string) (*File, error) {
 	dir := filepath.Dir(path)
 
-	// Check for afterpiece.toml first.
-	tomlPath := filepath.Join(dir, tomlconfig.Name)
-	if data, err := os.ReadFile(tomlPath); err == nil {
-		t, err := tomlconfig.Parse(data)
-		if err != nil {
-			return nil, fmt.Errorf("appfile.ParseFile (afterpiece.toml): %w", err)
-		}
-		return convertToml(t), nil
-	}
-
-	// Check for encore.toml.
-	tomlPath = filepath.Join(dir, tomlconfig.NameOld)
-	if data, err := os.ReadFile(tomlPath); err == nil {
-		t, err := tomlconfig.Parse(data)
-		if err != nil {
-			return nil, fmt.Errorf("appfile.ParseFile (encore.toml): %w", err)
-		}
-		return convertToml(t), nil
-	}
-
-	data, err := os.ReadFile(path)
+	configPath, err := FindProjectConfig(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return &File{}, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("appfile.ParseFile: %w", err)
 	}
-	return Parse(data)
-}
 
-// ParseFileStrict parses the app file located at path.
-// Unlike ParseFile, it returns an error if the file does not exist.
-func ParseFileStrict(path string) (*File, error) {
-	dir := filepath.Dir(path)
-
-	// Check for afterpiece.toml first.
-	tomlPath := filepath.Join(dir, tomlconfig.Name)
-	if data, err := os.ReadFile(tomlPath); err == nil {
-		t, err := tomlconfig.Parse(data)
-		if err != nil {
-			return nil, fmt.Errorf("appfile.ParseFileStrict (afterpiece.toml): %w", err)
-		}
-		return convertToml(t), nil
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("appfile.ParseFileStrict: %w", err)
-	}
-
-	// Check for encore.toml.
-	tomlPath = filepath.Join(dir, tomlconfig.NameOld)
-	if data, err := os.ReadFile(tomlPath); err == nil {
-		t, err := tomlconfig.Parse(data)
-		if err != nil {
-			return nil, fmt.Errorf("appfile.ParseFileStrict (encore.toml): %w", err)
-		}
-		return convertToml(t), nil
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("appfile.ParseFileStrict: %w", err)
-	}
-
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("appfile.ParseFileStrict: %w", err)
+		return nil, fmt.Errorf("appfile.ParseFile: %w", err)
 	}
+
+	base := filepath.Base(configPath)
+	if base == tomlconfig.Name || base == tomlconfig.NameOld {
+		t, err := tomlconfig.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("appfile.ParseFile (%s): %w", base, err)
+		}
+		return convertToml(t), nil
+	}
+
 	return Parse(data)
 }
 
@@ -269,6 +248,7 @@ func convertToml(t *tomlconfig.File) *File {
 
 	f.Migrations = Migrations{
 		Strategy: t.Migrations.Strategy,
+		Auto:     t.Migrations.Auto,
 	}
 
 	return f
