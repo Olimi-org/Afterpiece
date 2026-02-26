@@ -293,27 +293,32 @@ func (db *DB) doMigrate(ctx context.Context, cloudName, appRoot string, dbMeta *
 	db.log.Debug().Str("uri", uri).Msg("running migrations")
 
 	appConfigFile := filepath.Join(appRoot, appfile.Name)
-	if appFile, err := appfile.ParseFile(appConfigFile); err == nil {
-		if appFile.Migrations.Auto != nil && !*appFile.Migrations.Auto {
-			db.log.Info().Msg("skipping database migrations as auto is disabled")
-			return nil
+	appFile, err := appfile.ParseFile(appConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse app config: %w", err)
+	}
+
+	if appFile.Migrations.Auto != nil && !*appFile.Migrations.Auto {
+		db.log.Info().Msg("skipping database migrations as auto is disabled")
+		return nil
+	}
+
+	if appFile.Migrations.Strategy == appfile.MigrationStrategyAtlas {
+		db.log.Info().Msg("delegating migrations to Atlas CLI")
+
+		// For atlas migrate we assume it manages its own migration directory
+		cmd := exec.CommandContext(ctx, "atlas", "migrate", "apply", "--env", "encore")
+		cmd.Dir = appRoot
+		cmd.Env = append(os.Environ(), "DATABASE_URL="+uri)
+
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("atlas migration failed: %v\n%s", err, string(out))
 		}
-
-		if appFile.Migrations.Strategy == appfile.MigrationStrategyAtlas {
-			db.log.Info().Msg("delegating migrations to Atlas CLI")
-
-			// For atlas migrate we assume it manages its own migration directory
-			cmd := exec.CommandContext(ctx, "atlas", "migrate", "apply", "--env", "encore")
-			cmd.Dir = appRoot
-			cmd.Env = append(os.Environ(), "DATABASE_URL="+uri)
-
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				return fmt.Errorf("atlas migration failed: %v\n%s", err, string(out))
-			}
-			db.log.Info().Msgf("Atlas migration completed: %s", string(out))
-			return nil
-		}
+		db.log.Info().Msgf("Atlas migration completed: %s", string(out))
+		return nil
+	} else if appFile.Migrations.Strategy != "" && appFile.Migrations.Strategy != appfile.MigrationStrategyGoMigrate {
+		return fmt.Errorf("unknown migration strategy: %q", appFile.Migrations.Strategy)
 	}
 
 	pool, err := sql.Open("pgx", uri)

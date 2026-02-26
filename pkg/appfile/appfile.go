@@ -182,6 +182,8 @@ func FindProjectConfig(dir string) (string, error) {
 	for _, p := range paths {
 		if _, err := os.Stat(p); err == nil {
 			return p, nil
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return "", err
 		}
 	}
 
