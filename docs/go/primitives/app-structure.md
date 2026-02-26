@@ -13,6 +13,21 @@ If you have a large application, see advice on how to [structure an app with sev
 
 It's simple to integrate Encore applications with pre-existing systems you might have, using APIs and built-in tools like [client generation](/docs/go/cli/client-generation).
 
+## App Configuration File
+
+Your Encore application is identified by its configuration file. Historically, this has been an `encore.app` JSON file at the root. New projects, however, use a TOML configuration file named `encore.toml` (or `afterpiece.toml`). Both formats are supported, but you are encouraged to transition to the TOML setup.
+
+```toml
+id = "my-app"
+language = "typescript"
+
+[build]
+cgo_enabled = true
+
+[build.docker]
+base_image = "alpine"
+```
+
 ## Monolith or Microservices
 
 Encore is not opinionated about monoliths vs. microservices. It does however let you build microservices applications with a monolith-style developer experience. For example, you automatically get IDE auto-complete when making [API calls between services](/docs/go/primitives/api-calls), along with cross-service type-safety.

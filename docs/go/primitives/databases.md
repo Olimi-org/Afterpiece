@@ -107,11 +107,20 @@ You can configure Encore to use [Atlas](https://atlasgo.io/) for managing your d
 ```toml
 [migrations]
 strategy = "atlas"
+auto = true # Optional, defaults to true. If false, migrations are not run automatically at startup.
 ```
 
-When Atlas is enabled, the `Migrations` field within `sqldb.DatabaseConfig` must be omitted, since Atlas manages its own underlying migration directory configurations and connects via the `atlas.yaml` project file. If you attempt to specify a migration directory alongside the Atlas strategy, Encore will return a compilation error.
+When Atlas is enabled, the `Migrations` field within `sqldb.DatabaseConfig` must be omitted. Atlas handles its own migration directory configurations, connecting via an `atlas.hcl` project file. If you attempt to specify a migration directory alongside the Atlas strategy, Encore will return a compilation error.
 
-During the Encore build and run processes, Encore will automatically shell out to the `atlas` CLI to apply migrations.
+During the Encore build and run processes, Encore automatically executes the `atlas` CLI to apply migrations securely by exposing the database connection string via the `DATABASE_URL` environment variable.
+
+Because Encore passes `--env encore` to Atlas, your `atlas.hcl` file **must** define an `encore` environment that consumes this variable:
+
+```hcl
+env "encore" {
+  url = getenv("DATABASE_URL")
+}
+```
 
 ## Inserting data into databases
 
