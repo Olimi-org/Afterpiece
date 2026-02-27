@@ -188,11 +188,7 @@ func ParseFile(path string) (*File, error) {
 // ID returns the app ID for the project located at appRoot.
 // The ID can be empty if the app is not linked to encore.dev.
 func ID(appRoot string) (string, error) {
-	configPath, err := FindProjectConfig(appRoot)
-	if err != nil {
-		return "", err
-	}
-	f, err := ParseFile(configPath)
+	f, err := getParsedFile(appRoot)
 	if err != nil {
 		return "", err
 	}
@@ -202,11 +198,7 @@ func ID(appRoot string) (string, error) {
 // Experiments returns the experimental feature the app located
 // at appRoot has opted into.
 func Experiments(appRoot string) ([]experiments.Name, error) {
-	configPath, err := FindProjectConfig(appRoot)
-	if err != nil {
-		return nil, fmt.Errorf("appfile.ParseFile: %w", err)
-	}
-	f, err := ParseFile(configPath)
+	f, err := getParsedFile(appRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +207,20 @@ func Experiments(appRoot string) ([]experiments.Name, error) {
 
 // GlobalCORS returns the global CORS settings for the app located
 func GlobalCORS(appRoot string) (*CORS, error) {
-	configPath, err := FindProjectConfig(appRoot)
-	if err != nil {
-		return nil, fmt.Errorf("appfile.ParseFile: %w", err)
-	}
-	f, err := ParseFile(configPath)
+	f, err := getParsedFile(appRoot)
 	if err != nil {
 		return nil, err
 	}
 	return f.GlobalCORS, nil
+}
+
+func getParsedFile(appRoot string) (*File, error) {
+	configPath, err := FindProjectConfig(appRoot)
+	if errors.Is(err, fs.ErrNotExist) {
+		return &File{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("appfile.ParseFile: %w", err)
+	}
+	return ParseFile(configPath)
 }
