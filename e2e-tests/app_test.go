@@ -33,7 +33,6 @@ import (
 	"encr.dev/cli/daemon/secret"
 	. "encr.dev/internal/optracker"
 	"encr.dev/internal/version"
-	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/cueutil"
@@ -75,7 +74,7 @@ func RunApp(c testing.TB, appRoot string, logger RunLogger, env []string) *RunAp
 	// Use a randomly generated app id to avoid tests trampling on each other
 	// since we use a persistent working directory based on the app id.
 	app := apps.NewInstance(appRoot, uuid.Must(uuid.NewV4()).String(), "")
-	bld := builderimpl.Resolve(app.Lang(), nil)
+	bld := builderimpl.Resolve(nil)
 
 	mgr := &Manager{}
 	ns := &namespace.Namespace{ID: "some-id", Name: "default"}
@@ -174,19 +173,7 @@ func RunTests(c testing.TB, appRoot string, stdout, stderr io.Writer, environ []
 	// since we use a persistent working directory based on the app id.
 	app := apps.NewInstance(appRoot, uuid.Must(uuid.NewV4()).String(), "")
 
-	var args []string
-	switch app.Lang() {
-	case appfile.LangTS:
-		args = []string{}
-	case appfile.LangGo:
-		fallthrough
-	default:
-		args = []string{"./..."}
-	}
-
-	if app.Lang() == appfile.LangTS {
-		args = []string{}
-	}
+	args := []string{"./..."}
 	err := mgr.Test(ctx, TestParams{
 		TestSpecParams: &TestSpecParams{
 			App:        app,
@@ -245,7 +232,7 @@ func testBuild(t testing.TB, appRoot string, env []string) (*builder.ParseResult
 	// since we use a persistent working directory based on the app id.
 	app := apps.NewInstance(appRoot, uuid.Must(uuid.NewV4()).String(), "")
 
-	bld := builderimpl.Resolve(app.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 	ctx := context.Background()
 
