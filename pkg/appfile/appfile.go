@@ -166,21 +166,14 @@ func Parse(data []byte, format string) (*File, error) {
 
 // ParseFile parses the app file located at path.
 func ParseFile(path string) (*File, error) {
-	dir := filepath.Dir(path)
-
-	configPath, err := FindProjectConfig(dir)
+	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return &File{}, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("appfile.ParseFile: %w", err)
 	}
 
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("appfile.ParseFile: %w", err)
-	}
-
-	base := filepath.Base(configPath)
+	base := filepath.Base(path)
 	if base == TomlAppConfig || base == LegacyTomlAppConfig {
 		tomlConf, err := Parse(data, "toml")
 		if err != nil {

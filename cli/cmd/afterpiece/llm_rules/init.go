@@ -118,7 +118,7 @@ func initLLMRules(tool Tool) error {
 	// Parse project config
 	filePath, err := appfile.FindProjectConfig(root)
 	if err != nil {
-		cmdutil.Fatalf("couldn't parse project config: %s", err)
+		cmdutil.Fatalf("couldn't find project config: %s", err)
 	}
 	encoreApp, err := appfile.ParseFile(filePath)
 	if err != nil {
