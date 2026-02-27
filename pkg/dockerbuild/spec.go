@@ -14,7 +14,6 @@ import (
 	"github.com/rs/xid"
 	"google.golang.org/protobuf/proto"
 
-	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/noopgateway"
 	"encr.dev/pkg/noopgwdesc"
@@ -137,9 +136,6 @@ type DescribeConfig struct {
 
 	// The directory containing the runtimes.
 	Runtimes HostPath
-
-	// The path to the node runtime, if any.
-	NodeRuntime option.Option[HostPath]
 
 	// The docker base image to use, if any. If None it defaults to the empty scratch image.
 	DockerBaseImage option.Option[string]
@@ -467,7 +463,7 @@ func randomProcID() string {
 }
 
 // DetermineIncludes determines what paths within the workspace should be included in the image.
-func DetermineIncludes(appLang appfile.Lang, bundleSource bool, workspaceRoot string, appRoot string) ([]RelPath, error) {
+func DetermineIncludes(bundleSource bool, workspaceRoot string, appRoot string) ([]RelPath, error) {
 	// if the actual setting is set, include all files from the workspace
 	if bundleSource {
 		return []RelPath{"."}, nil
@@ -479,30 +475,6 @@ func DetermineIncludes(appLang appfile.Lang, bundleSource bool, workspaceRoot st
 	}
 
 	var extraIncludePaths []RelPath
-
-	// Include node_modules and package.json from the workspace root if the app is a TypeScript app.
-	if appLang == appfile.LangTS {
-		dir := filepath.Dir(appRoot)
-		for {
-			relPath, err := filepath.Rel(workspaceRoot, dir)
-			if err != nil {
-				return nil, errors.Wrap(err, "relative path from workspace root")
-			}
-
-			pathsToCheck := []string{"node_modules", "package.json"}
-			for _, path := range pathsToCheck {
-				if _, err := os.Stat(filepath.Join(dir, path)); err == nil {
-					extraIncludePaths = append(extraIncludePaths, RelPath(filepath.Join(relPath, path)))
-				}
-			}
-
-			if dir == workspaceRoot {
-				break
-			}
-
-			dir = filepath.Dir(dir)
-		}
-	}
 
 	// Walk all files and folders in includedPaths and find any symlinks.
 	// Add the symlink target to includedPaths if it is within the workspace root.

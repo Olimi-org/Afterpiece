@@ -97,7 +97,7 @@ func WorkspaceRoot(appRoot string) string {
 
 func AppSlugOrLocalID() string {
 	appRoot, _ := AppRoot()
-	appID, _ := appfile.Slug(appRoot)
+	appID, _ := appfile.ID(appRoot)
 	if appID == "" {
 		mf, err := manifest.ReadOrCreate(appRoot)
 		if err != nil {
@@ -112,7 +112,7 @@ func AppSlugOrLocalID() string {
 // It throws a fatal error if the app is not connected with the Encore Platform.
 func AppSlug() string {
 	appRoot, _ := AppRoot()
-	appSlug, err := appfile.Slug(appRoot)
+	appSlug, err := appfile.ID(appRoot)
 	if err != nil {
 		Fatal(err)
 	} else if appSlug == "" {

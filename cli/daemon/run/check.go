@@ -62,7 +62,7 @@ func (mgr *Manager) Check(ctx context.Context, p CheckParams) (buildDir string, 
 		UseLocalJSRuntime: version.Channel == version.DevBuild,
 	}
 
-	bld := builderimpl.Resolve(p.App.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 	parse, err := bld.Parse(ctx, builder.ParseParams{
 		Build:       buildInfo,

@@ -42,7 +42,7 @@ func (mgr *Manager) Test(ctx context.Context, params TestParams) (err error) {
 	if err != nil {
 		return err
 	}
-	bld := builderimpl.Resolve(params.App.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 
 	spec, err := mgr.testSpec(ctx, bld, expSet, params.TestSpecParams)
@@ -101,7 +101,7 @@ func (mgr *Manager) TestSpec(ctx context.Context, params TestSpecParams) (*TestS
 	if err != nil {
 		return nil, err
 	}
-	bld := builderimpl.Resolve(params.App.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 
 	spec, err := mgr.testSpec(ctx, bld, expSet, &params)

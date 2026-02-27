@@ -88,8 +88,8 @@ func (i ToolItem) SelectedID() Tool    { return i.tool }
 type ToolSelectModel = cmdutil.SimpleSelectModel[Tool, ToolItem]
 type ToolSelectDone = cmdutil.SimpleSelectDone[Tool]
 
-func SetupLLMRules(llmRules Tool, lang cmdutil.Language, appRootRelpath string, appSlug string) error {
-	llmInstructions, err := downloadLLMInstructions(lang)
+func SetupLLMRules(llmRules Tool, appRootRelpath string, appSlug string) error {
+	llmInstructions, err := downloadLLMInstructions()
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func SetupLLMRules(llmRules Tool, lang cmdutil.Language, appRootRelpath string, 
 
 		// https://cursor.com/docs/context/rules
 		// always overwrite as we have a dedicated encore config file
-		err = os.WriteFile(filepath.Join(rulesDir, "encore.mdc"), fmt.Appendf(nil, mdcTemplate, lang, string(llmInstructions)), 0644)
+		err = os.WriteFile(filepath.Join(rulesDir, "encore.mdc"), fmt.Appendf(nil, mdcTemplate, "go", string(llmInstructions)), 0644)
 		if err != nil {
 			return err
 		}
@@ -294,17 +294,9 @@ func writeNewFileOrSkip(filePath string, data []byte) error {
 	return nil
 }
 
-func downloadLLMInstructions(lang cmdutil.Language) (string, error) {
+func downloadLLMInstructions() (string, error) {
 	fmt.Println("Downloading LLM Instructions...")
-	var url string
-	switch lang {
-	case cmdutil.LanguageGo:
-		url = "https://raw.githubusercontent.com/encoredev/encore/refs/heads/main/go_llm_instructions.txt"
-	case cmdutil.LanguageTS:
-		url = "https://raw.githubusercontent.com/encoredev/encore/refs/heads/main/ts_llm_instructions.txt"
-	default:
-		return "", fmt.Errorf("unsupported language")
-	}
+	url := "https://raw.githubusercontent.com/encoredev/encore/refs/heads/main/go_llm_instructions.txt"
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Prefix = "Downloading LLM instructions..."
 	s.Start()

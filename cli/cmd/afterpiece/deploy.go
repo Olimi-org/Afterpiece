@@ -45,7 +45,7 @@ var deployAppCmd = &cobra.Command{
 			if err != nil {
 				cmdutil.Fatalf("no app found. Run deploy inside an encore app directory or specify the app with --app")
 			}
-			appSlug, err = appfile.Slug(appRoot)
+			appSlug, err = appfile.ID(appRoot)
 			if err != nil {
 				cmdutil.Fatalf("no app found. Run deploy inside an encore app directory or specify the app with --app")
 			}

@@ -29,14 +29,11 @@ func downloadBinary(platform, arch string, binary string, log zerolog.Logger) (d
 		if platform != runtime.GOOS || arch != runtime.GOARCH {
 			suffix = "-" + platform + "-" + arch
 		}
-		if binary == "encore-runtime.node" {
-			binary = "js/" + binary
-		}
 		path := filepath.Join(env.EncoreRuntimesPath(), binary+suffix)
 		if _, err := os.Stat(path); err == nil {
 			return dockerbuild.HostPath(path), nil
 		}
-		return "", fmt.Errorf("development build of %s/%s %s not found at %s. Build it with `go run ./pkg/encorebuild/cmd/build-local-binary %[3]s --os=%[1]s --arch=%[2]s`", platform, arch, binary, path)
+		return "", fmt.Errorf("development build of %s/%s %s not found at %s. Download a release build or build from source", platform, arch, binary, path)
 	}
 	cacheDir, err := conf.CacheDir()
 	if err != nil {

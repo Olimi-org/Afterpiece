@@ -292,7 +292,10 @@ func (db *DB) doMigrate(ctx context.Context, cloudName, appRoot string, dbMeta *
 	uri := info.ConnURI(cloudName, admin)
 	db.log.Debug().Str("uri", uri).Msg("running migrations")
 
-	appConfigFile := filepath.Join(appRoot, appfile.Name)
+	appConfigFile, err := appfile.FindProjectConfig(appRoot)
+	if err != nil {
+		return fmt.Errorf("failed to find app config: %w", err)
+	}
 	appFile, err := appfile.ParseFile(appConfigFile)
 	if err != nil {
 		return fmt.Errorf("failed to parse app config: %w", err)

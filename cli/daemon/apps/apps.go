@@ -348,17 +348,7 @@ func (i *Instance) fetchPlatformID() (string, error) {
 }
 
 func readPlatformID(appRoot string) (string, error) {
-	// Parse the encore.app file
-	path := filepath.Join(appRoot, appfile.Name)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	encore, err := appfile.Parse(data)
-	if err != nil {
-		return "", errors.Wrap(err, "parse encore.app")
-	}
-	return encore.ID, nil
+	return appfile.ID(appRoot)
 }
 
 // Experiments returns the enabled experiments for this app.
@@ -367,28 +357,23 @@ func readPlatformID(appRoot string) (string, error) {
 // can detect changes between runs of the compiler if we're in
 // watch mode.
 func (i *Instance) Experiments(environ []string) (*experiments.Set, error) {
-	exp, err := appfile.Experiments(i.root)
+	f, err := i.AppFile()
 	if err != nil {
 		return nil, err
 	}
-
-	return experiments.FromAppFileAndEnviron(exp, environ)
-}
-
-func (i *Instance) Lang() appfile.Lang {
-	appFile, err := appfile.ParseFile(filepath.Join(i.root, appfile.Name))
-	if err != nil {
-		return appfile.LangGo
-	}
-	return appFile.Lang
+	return experiments.FromAppFileAndEnviron(f.Experiments, environ)
 }
 
 func (i *Instance) AppFile() (*appfile.File, error) {
-	return appfile.ParseFile(filepath.Join(i.root, appfile.Name))
+	path, err := appfile.FindProjectConfig(i.root)
+	if err != nil {
+		return &appfile.File{}, err
+	}
+	return appfile.ParseFile(path)
 }
 
 func (i *Instance) BuildSettings() (appfile.Build, error) {
-	appFile, err := appfile.ParseFile(filepath.Join(i.root, appfile.Name))
+	appFile, err := i.AppFile()
 	if err != nil {
 		return appfile.Build{}, err
 	}
@@ -398,18 +383,17 @@ func (i *Instance) BuildSettings() (appfile.Build, error) {
 // GlobalCORS returns the CORS configuration for the app which
 // will be applied against all API gateways into the app
 func (i *Instance) GlobalCORS() (appfile.CORS, error) {
-	cors, err := appfile.GlobalCORS(i.root)
+	f, err := i.AppFile()
 	if err != nil {
 		return appfile.CORS{}, err
 	}
 
 	// If there are no Global CORS return the default
-	if cors == nil {
+	if f.GlobalCORS == nil {
 		return appfile.CORS{}, nil
 	}
 
-	return *cors, nil
-
+	return *f.GlobalCORS, nil
 }
 
 func (i *Instance) Watch(fn WatchFunc) (WatchSubscriptionID, error) {

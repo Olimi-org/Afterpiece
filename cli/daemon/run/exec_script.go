@@ -76,7 +76,7 @@ func (mgr *Manager) ExecScript(ctx context.Context, p ExecScriptParams) (err err
 	parseOp := tracker.Add("Building Encore application graph", start)
 	topoOp := tracker.Add("Analyzing service topology", start)
 
-	bld := builderimpl.Resolve(p.App.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 	vcsRevision := vcs.GetRevision(p.App.Root())
 	buildInfo := builder.BuildInfo{

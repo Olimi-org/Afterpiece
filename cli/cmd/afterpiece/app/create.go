@@ -27,7 +27,6 @@ import (
 	"encr.dev/internal/conf"
 	"encr.dev/internal/env"
 	"encr.dev/internal/userconfig"
-	"encr.dev/internal/version"
 	"encr.dev/pkg/github"
 	"encr.dev/pkg/xos"
 	daemonpb "encr.dev/proto/afterpiece/daemon"
@@ -36,15 +35,7 @@ import (
 var (
 	createAppTemplate   string
 	createAppOnPlatform bool
-	createAppLang       = cmdutil.Oneof{
-		Value:     "",
-		Allowed:   cmdutil.LanguageFlagValues(),
-		Flag:      "lang",
-		FlagShort: "l",
-		Desc:      "Programming language to use for the app",
-		TypeDesc:  "string",
-	}
-	createAppLLMRules = cmdutil.Oneof{
+	createAppLLMRules   = cmdutil.Oneof{
 		Value:     "",
 		Allowed:   llm_rules.LLMRulesFlagValues(),
 		Flag:      "llm-rules",
@@ -77,7 +68,7 @@ var createAppCmd = &cobra.Command{
 			tool = llm_rules.Tool(createAppLLMRules.Value)
 		}
 
-		if err := createApp(context.Background(), name, createAppTemplate, cmdutil.Language(createAppLang.Value), tool); err != nil {
+		if err := createApp(context.Background(), name, createAppTemplate, tool); err != nil {
 			cmdutil.Fatal(err)
 		}
 	},
@@ -87,7 +78,6 @@ func init() {
 	appCmd.AddCommand(createAppCmd)
 	createAppCmd.Flags().BoolVar(&createAppOnPlatform, "platform", true, "whether to create the app with the Encore Platform")
 	createAppCmd.Flags().StringVar(&createAppTemplate, "example", "", "URL to example code to use.")
-	createAppLang.AddFlag(createAppCmd)
 	createAppLLMRules.AddFlag(createAppCmd)
 }
 
@@ -158,12 +148,11 @@ func promptRunApp() bool {
 }
 
 // createApp is the implementation of the "encore app create" command.
-func createApp(ctx context.Context, name, template string, lang cmdutil.Language, llmRules llm_rules.Tool) (err error) {
+func createApp(ctx context.Context, name, template string, llmRules llm_rules.Tool) (err error) {
 	defer func() {
 		// We need to send the telemetry synchronously to ensure it's sent before the command exits.
 		telemetry.SendSync("app.create", map[string]any{
 			"template": template,
-			"lang":     lang,
 			"error":    err != nil,
 		})
 	}()
@@ -173,15 +162,12 @@ func createApp(ctx context.Context, name, template string, lang cmdutil.Language
 	promptAccountCreation()
 
 	if name == "" || template == "" || llmRules == "" {
-		name, template, lang, llmRules = createAppForm(name, template, lang, llmRules, false)
+		name, template, llmRules = createAppForm(name, template, llmRules, false)
 	}
 	// Treat the special name "empty" as the empty app template
 	// (the rest of the code assumes that's the empty string).
 	if template == "empty" {
 		template = ""
-	}
-	if template == "" && lang == cmdutil.LanguageTS {
-		template = "ts/empty"
 	}
 
 	if err := validateName(name); err != nil {
@@ -281,20 +267,10 @@ func createApp(ctx context.Context, name, template string, lang cmdutil.Language
 
 	// Update to latest encore.dev release
 	if _, err := os.Stat(filepath.Join(name, appRootRelpath, "go.mod")); err == nil {
-		lang = cmdutil.LanguageGo
 		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 		s.Prefix = "Running go get encore.dev@latest"
 		s.Start()
 		if err := gogetEncore(filepath.Join(name, appRootRelpath)); err != nil {
-			s.FinalMSG = fmt.Sprintf("failed, skipping: %v", err.Error())
-		}
-		s.Stop()
-	} else if _, err := os.Stat(filepath.Join(name, appRootRelpath, "package.json")); err == nil {
-		lang = cmdutil.LanguageTS
-		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-		s.Prefix = "Running npm install encore.dev@latest"
-		s.Start()
-		if err := npmInstallEncore(filepath.Join(name, appRootRelpath)); err != nil {
 			s.FinalMSG = fmt.Sprintf("failed, skipping: %v", err.Error())
 		}
 		s.Stop()
@@ -331,7 +307,7 @@ func createApp(ctx context.Context, name, template string, lang cmdutil.Language
 		color.Red("Failed to create app on daemon: %s\n", err)
 	}
 
-	if err := llm_rules.SetupLLMRules(llmRules, lang, filepath.Join(name, appRootRelpath), appResp.AppId); err != nil {
+	if err := llm_rules.SetupLLMRules(llmRules, filepath.Join(name, appRootRelpath), appResp.AppId); err != nil {
 		color.Red("Failed to setup LLM rules: %s\n", err)
 	}
 
@@ -371,11 +347,7 @@ func createApp(ctx context.Context, name, template string, lang cmdutil.Language
 	_, _ = cyan.Printf("    encore run\n")
 	fmt.Print("        Run your app locally\n\n")
 
-	if lang == cmdutil.LanguageGo {
-		_, _ = cyan.Printf("    encore test ./...\n")
-	} else {
-		_, _ = cyan.Printf("    encore test\n")
-	}
+	_, _ = cyan.Printf("    encore test ./...\n")
 	fmt.Print("        Run tests\n\n")
 
 	if app != nil {
@@ -385,17 +357,6 @@ func createApp(ctx context.Context, name, template string, lang cmdutil.Language
 
 	fmt.Printf("Get started now: %s\n", greenBoldF("cd %s && encore run", filepath.Join(name, appRootRelpath)))
 	return nil
-}
-
-// detectLang attempts to detect the application language for an Encore application
-// situated at appRoot.
-func detectLang(appRoot string) cmdutil.Language {
-	if _, err := os.Stat(filepath.Join(appRoot, "go.mod")); err == nil {
-		return cmdutil.LanguageGo
-	} else if _, err := os.Stat(filepath.Join(appRoot, "package.json")); err == nil {
-		return cmdutil.LanguageTS
-	}
-	return cmdutil.LanguageGo
 }
 
 func validateName(name string) error {
@@ -444,32 +405,6 @@ func gogetEncore(dir string) error {
 		return errors.Newf("go get failed: %v: %s", err, out)
 	}
 	return nil
-}
-
-func npmInstallEncore(dir string) error {
-	args := []string{"install"}
-	if version.Channel == version.DevBuild {
-		args = append(args, filepath.Join(env.EncoreRuntimesPath(), "js", "encore.dev"))
-	} else {
-		args = append(args, fmt.Sprintf("encore.dev@%s", strings.TrimPrefix(version.Version, "v")))
-	}
-
-	// First install the 'encore.dev' package.
-	cmd := exec.Command("npm", args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		err = fmt.Errorf("installing encore.dev package failed: %v: %s", err, out)
-	}
-
-	// Then run 'npm install'.
-	cmd = exec.Command("npm", "install")
-	cmd.Dir = dir
-	if out2, err2 := cmd.CombinedOutput(); err2 != nil && err == nil {
-		err = fmt.Errorf("'npm install' failed: %v: %s", err2, out2)
-	}
-
-	return err
 }
 
 func createAppOnServer(name string, cfg exampleConfig) (*platform.App, error) {

@@ -11,7 +11,6 @@ import (
 
 	"encr.dev/cli/daemon/run"
 	"encr.dev/internal/optracker"
-	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/paths"
 	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
@@ -71,58 +70,37 @@ func (s *Server) ExecScript(req *daemonpb.ExecScriptRequest, stream daemonpb.Dae
 		}
 	}()
 
-	switch app.Lang() {
-	case appfile.LangGo:
-		modPath := filepath.Join(app.Root(), "go.mod")
-		modData, err := os.ReadFile(modPath)
-		if err != nil {
-			sendErr(err)
-			return nil
-		}
-		mod, err := modfile.Parse(modPath, modData, nil)
-		if err != nil {
-			sendErr(err)
-			return nil
-		}
+	modPath := filepath.Join(app.Root(), "go.mod")
+	modData, err := os.ReadFile(modPath)
+	if err != nil {
+		sendErr(err)
+		return nil
+	}
+	mod, err := modfile.Parse(modPath, modData, nil)
+	if err != nil {
+		sendErr(err)
+		return nil
+	}
 
-		commandRelPath := filepath.ToSlash(filepath.Join(req.WorkingDir, req.ScriptArgs[0]))
-		scriptArgs := req.ScriptArgs[1:]
-		commandPkg := paths.Pkg(mod.Module.Mod.Path).JoinSlash(paths.RelSlash(commandRelPath))
+	commandRelPath := filepath.ToSlash(filepath.Join(req.WorkingDir, req.ScriptArgs[0]))
+	scriptArgs := req.ScriptArgs[1:]
+	commandPkg := paths.Pkg(mod.Module.Mod.Path).JoinSlash(paths.RelSlash(commandRelPath))
 
-		p := run.ExecScriptParams{
-			App:        app,
-			NS:         ns,
-			WorkingDir: req.WorkingDir,
-			Environ:    req.Environ,
-			MainPkg:    commandPkg,
-			ScriptArgs: scriptArgs,
-			Stdout:     slog.Stdout(false),
-			Stderr:     slog.Stderr(false),
-			OpTracker:  ops,
-		}
-		if err := s.mgr.ExecScript(stream.Context(), p); err != nil {
-			sendErr(err)
-		} else {
-			streamExit(stream, 0)
-		}
-	case appfile.LangTS:
-		p := run.ExecCommandParams{
-			App:        app,
-			NS:         ns,
-			WorkingDir: req.WorkingDir,
-			Environ:    req.Environ,
-			Command:    req.ScriptArgs[0],
-			ScriptArgs: req.ScriptArgs[1:],
-			Stdout:     slog.Stdout(false),
-			Stderr:     slog.Stderr(false),
-			OpTracker:  ops,
-		}
-
-		if err := s.mgr.ExecCommand(stream.Context(), p); err != nil {
-			sendErr(err)
-		} else {
-			streamExit(stream, 0)
-		}
+	p := run.ExecScriptParams{
+		App:        app,
+		NS:         ns,
+		WorkingDir: req.WorkingDir,
+		Environ:    req.Environ,
+		MainPkg:    commandPkg,
+		ScriptArgs: scriptArgs,
+		Stdout:     slog.Stdout(false),
+		Stderr:     slog.Stderr(false),
+		OpTracker:  ops,
+	}
+	if err := s.mgr.ExecScript(stream.Context(), p); err != nil {
+		sendErr(err)
+	} else {
+		streamExit(stream, 0)
 	}
 
 	return nil

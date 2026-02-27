@@ -78,7 +78,7 @@ To further narrow down the services to generate, use the '--services' flag.
 				if err != nil && !errors.Is(err, cmdutil.ErrNoEncoreApp) {
 					fatal(err)
 				} else if appRoot != "" {
-					if slug, err := appfile.Slug(appRoot); err == nil {
+					if slug, err := appfile.ID(appRoot); err == nil {
 						appID = slug
 					}
 				}
