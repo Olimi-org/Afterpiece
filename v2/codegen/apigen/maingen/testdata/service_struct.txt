@@ -129,6 +129,7 @@ var EncoreInternal_api_APIDesc_Foo = &__api.Desc[*EncoreInternal_FooReq, EncoreI
 	ServiceMiddleware: []*__api.Middleware{},
 	SvcNum:            1,
 	Tags:              nil,
+	Upload:            false,
 }
 -- want:encore_internal__svcstruct.go --
 package code

@@ -473,6 +473,10 @@ func (ts *typescript) writeService(svc *meta.Service, p clientgentypes.ServiceSe
 			if err := ts.streamCallSite(ts.newIdentWriter(numIndent+1), rpc, rpcPath.String(), direction); err != nil {
 				return errors.Wrapf(err, "unable to write streaming RPC call site for %ss.%s", rpc.ServiceName, rpc.Name)
 			}
+		} else if rpc.Proto == meta.RPC_UPLOAD {
+			if err := ts.uploadCallSite(ns, ts.newIdentWriter(numIndent+1), rpc, rpcPath.String()); err != nil {
+				return errors.Wrapf(err, "unable to write upload RPC call site for %s.%s", rpc.ServiceName, rpc.Name)
+			}
 		} else {
 			if err := ts.rpcCallSite(ns, ts.newIdentWriter(numIndent+1), rpc, rpcPath.String()); err != nil {
 				return errors.Wrapf(err, "unable to write RPC call site for %s.%s", rpc.ServiceName, rpc.Name)
@@ -779,6 +783,54 @@ func (ts *typescript) rpcCallSite(ns string, w *indentWriter, rpc *meta.RPC, rpc
 	}
 
 	w.WriteString("return rtn\n")
+	return nil
+}
+
+func (ts *typescript) uploadCallSite(ns string, w *indentWriter, rpc *meta.RPC, rpcPath string) error {
+	// Work out how we're going to encode and call this RPC
+	rpcEncoding, err := encoding.DescribeRPC(ts.md, rpc, &encoding.Options{SrcNameTag: "json"})
+	if err != nil {
+		return errors.Wrapf(err, "rpc %s", rpc.Name)
+	}
+
+	reqEnc := rpcEncoding.DefaultRequestEncoding
+
+	// Build FormData
+	w.WriteString("const formData = new FormData()\n")
+
+	// Append file fields
+	for _, field := range reqEnc.FileParameters {
+		w.WriteStringf("formData.append(%q, %s)\n", field.SrcName, ts.Dot("params", field.SrcName))
+	}
+
+	// Append non-file body fields as individual form fields
+	for _, field := range reqEnc.BodyParameters {
+		srcRef := ts.Dot("params", field.SrcName)
+		w.WriteStringf("if (%s !== undefined) formData.append(%q, JSON.stringify(%s))\n", srcRef, field.SrcName, srcRef)
+	}
+
+	w.WriteString("\n")
+
+	// Build the call to callAPI with FormData body
+	callAPI := fmt.Sprintf("this.baseClient.callAPI(\"POST\", `%s`, formData)", rpcPath)
+
+	// If there's no response schema, we can just return the call to the API directly
+	if rpc.ResponseSchema == nil {
+		w.WriteStringf("await %s\n", callAPI)
+		return nil
+	}
+
+	w.WriteStringf("// Now make the actual call to the API\nconst resp = await %s\n", callAPI)
+
+	// Return the response
+	if ts.sharedTypes {
+		w.WriteStringf("return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof %s>\n", rpcImportName(rpc))
+	} else {
+		w.WriteString("return await resp.json() as ")
+		ts.writeTyp(ns, rpc.ResponseSchema, 0)
+		w.WriteString("\n")
+	}
+
 	return nil
 }
 
@@ -1669,6 +1721,8 @@ func (ts *typescript) builtinType(typ schema.Builtin) string {
 		return "string"
 	case schema.Builtin_DECIMAL:
 		return "string"
+	case schema.Builtin_FILE_UPLOAD:
+		return "File | Blob"
 	default:
 		ts.errorf("unknown builtin type %v", typ)
 		return "any"
@@ -1723,6 +1777,8 @@ func (ts *typescript) convertStringToBuiltin(typ schema.Builtin, val string) str
 	case schema.Builtin_UUID:
 		return val
 	case schema.Builtin_USER_ID:
+		return val
+	case schema.Builtin_FILE_UPLOAD:
 		return val
 	default:
 		ts.errorf("unknown builtin type %v", typ)

@@ -101,6 +101,9 @@ func (b *builder) Build() *meta.Data {
 				if ep.Raw {
 					rpc.Proto = meta.RPC_RAW
 				}
+				if ep.Upload {
+					rpc.Proto = meta.RPC_UPLOAD
+				}
 
 				switch ep.Access {
 				case api.Public:

@@ -190,6 +190,8 @@ const (
 	UserID
 	Error // builtin "error" type, for convenience
 
+	FileUpload // *api.File upload type
+
 	// unsupported is a special value used
 	// to indicate the particular builtin is known,
 	// but is not something Encore supports.

@@ -56,6 +56,8 @@ func (b *builder) builtinType(typ schemav2.BuiltinType) schema.Builtin {
 		return schema.Builtin_JSON
 	case schemav2.UserID:
 		return schema.Builtin_USER_ID
+	case schemav2.FileUpload:
+		return schema.Builtin_FILE_UPLOAD
 
 	default:
 		panic(fmt.Sprintf("unknown builtin type %v", typ.Kind))

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -508,6 +509,41 @@ func doTestEndToEndWithApp(t *testing.T, env []string) {
 				"SubKeyCount":  2,
 			})
 		}
+	})
+
+	c.Run("upload", func(c *qt.C) {
+		// Test single file upload with metadata
+		c.Run("single file upload", func(c *qt.C) {
+			var body bytes.Buffer
+			writer := multipart.NewWriter(&body)
+
+			// Add file part
+			part, err := writer.CreateFormFile("File", "test.txt")
+			c.Assert(err, qt.IsNil)
+			fileContent := "hello world from upload e2e test"
+			_, err = part.Write([]byte(fileContent))
+			c.Assert(err, qt.IsNil)
+
+			// Add metadata field (JSON-stringified, as clients send it)
+			err = writer.WriteField("title", `"My Test Upload"`)
+			c.Assert(err, qt.IsNil)
+
+			err = writer.Close()
+			c.Assert(err, qt.IsNil)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/echo.Upload", &body)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			run.ServeHTTP(w, req)
+			c.Assert(w.Code, qt.Equals, 200, qt.Commentf("response: %s", w.Body.String()))
+
+			var resp map[string]any
+			c.Assert(json.Unmarshal(w.Body.Bytes(), &resp), qt.IsNil)
+			c.Assert(resp["filename"], qt.Equals, "test.txt")
+			c.Assert(resp["content"], qt.Equals, fileContent)
+			c.Assert(resp["title"], qt.Equals, "My Test Upload")
+			c.Assert(resp["size"], qt.Equals, float64(len(fileContent)))
+		})
 	})
 
 	c.Run("go_generated_client", func(c *qt.C) {

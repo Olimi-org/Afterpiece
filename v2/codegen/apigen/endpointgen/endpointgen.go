@@ -83,6 +83,7 @@ func genAPIDesc(
 		Id("Endpoint"):       Lit(ep.Name),
 		Id("Methods"):        gu.GoToJen(pos, methods),
 		Id("Raw"):            Lit(ep.Raw),
+		Id("Upload"):         Lit(ep.Upload),
 		Id("Fallback"):       Lit(ep.Path.HasFallback()),
 		Id("Path"):           Lit(ep.Path.String()),
 		Id("RawPath"):        Lit(rawPath(ep.Path)),

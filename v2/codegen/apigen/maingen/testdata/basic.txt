@@ -111,6 +111,7 @@ var EncoreInternal_api_APIDesc_Foo = &__api.Desc[*EncoreInternal_FooReq, EncoreI
 	ServiceMiddleware: []*__api.Middleware{},
 	SvcNum:            1,
 	Tags:              nil,
+	Upload:            false,
 }
 -- want:synthetic/static_config.go --
 package synthetic

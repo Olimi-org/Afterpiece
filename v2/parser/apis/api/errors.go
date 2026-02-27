@@ -134,4 +134,19 @@ For more information on how to use APIs, see https://encore.dev/docs/primitives/
 		"Invalid API call",
 		"Raw APIs cannot be called from within an Encore application.",
 	)
+
+	errUploadAndRawMutuallyExclusive = errRange.New(
+		"Invalid API Directive",
+		"An API cannot be both an upload and a raw endpoint.",
+	)
+
+	errUploadEndpointCantBePrivate = errRange.New(
+		"Invalid API Directive",
+		"Private APIs cannot be declared as upload endpoints.",
+	)
+
+	ErrUploadEndpointsCannotBeCalled = errRange.New(
+		"Invalid API call",
+		"Upload APIs cannot be called from within an Encore application.",
+	)
 )
