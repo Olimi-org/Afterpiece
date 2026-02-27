@@ -366,8 +366,10 @@ func (i *Instance) Experiments(environ []string) (*experiments.Set, error) {
 
 func (i *Instance) AppFile() (*appfile.File, error) {
 	path, err := appfile.FindProjectConfig(i.root)
-	if err != nil {
-		return &appfile.File{}, err
+	if errors.Is(err, fs.ErrNotExist) {
+		return &appfile.File{}, nil
+	} else if err != nil {
+		return nil, err
 	}
 	return appfile.ParseFile(path)
 }

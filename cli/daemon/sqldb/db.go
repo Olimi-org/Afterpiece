@@ -293,7 +293,9 @@ func (db *DB) doMigrate(ctx context.Context, cloudName, appRoot string, dbMeta *
 	db.log.Debug().Str("uri", uri).Msg("running migrations")
 
 	appConfigFile, err := appfile.FindProjectConfig(appRoot)
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
+		db.log.Debug().Msg("no app config found, using default migration strategy")
+	} else if err != nil {
 		return fmt.Errorf("failed to find app config: %w", err)
 	}
 	appFile, err := appfile.ParseFile(appConfigFile)
