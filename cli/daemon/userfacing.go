@@ -51,7 +51,7 @@ func (s *Server) genUserFacing(ctx context.Context, app *apps.Instance) error {
 		UseLocalJSRuntime: version.Channel == version.DevBuild,
 	}
 
-	bld := builderimpl.Resolve(app.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 
 	parse, err := bld.Parse(ctx, builder.ParseParams{

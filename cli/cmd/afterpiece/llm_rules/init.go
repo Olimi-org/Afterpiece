@@ -2,7 +2,6 @@ package llm_rules
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 
 	"encr.dev/cli/cmd/afterpiece/cmdutil"
@@ -116,22 +115,17 @@ func initLLMRules(tool Tool) error {
 		cmdutil.Fatal(err)
 	}
 
-	// parse encore.app
-	filePath := filepath.Join(root, "encore.app")
+	// Parse project config
+	filePath, err := appfile.FindProjectConfig(root)
+	if err != nil {
+		cmdutil.Fatalf("couldn't parse project config: %s", err)
+	}
 	encoreApp, err := appfile.ParseFile(filePath)
 	if err != nil {
-		cmdutil.Fatalf("couldn't parse encore.app: %s", err)
+		cmdutil.Fatalf("couldn't parse project config: %s", err)
 	}
 
-	var lang cmdutil.Language
-	switch encoreApp.Lang {
-	case appfile.LangGo:
-		lang = cmdutil.LanguageGo
-	case appfile.LangTS:
-		lang = cmdutil.LanguageTS
-	}
-
-	if err := SetupLLMRules(tool, lang, root, encoreApp.ID); err != nil {
+	if err := SetupLLMRules(tool, root, encoreApp.ID); err != nil {
 		cmdutil.Fatal(err)
 	}
 

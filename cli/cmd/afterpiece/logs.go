@@ -39,7 +39,7 @@ var logsCmd = &cobra.Command{
 func streamLogs(appRoot, envName string) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
-	appSlug, err := appfile.Slug(appRoot)
+	appSlug, err := appfile.ID(appRoot)
 	if err != nil {
 		fatal(err)
 	} else if appSlug == "" {

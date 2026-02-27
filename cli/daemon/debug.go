@@ -48,7 +48,7 @@ func (s *Server) DumpMeta(ctx context.Context, req *daemonpb.DumpMetaRequest) (*
 		UseLocalJSRuntime: version.Channel == version.DevBuild,
 	}
 
-	bld := builderimpl.Resolve(app.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 	parse, err := bld.Parse(ctx, builder.ParseParams{
 		Build:       buildInfo,

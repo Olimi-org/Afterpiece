@@ -363,7 +363,7 @@ func (r *Run) buildAndStart(ctx context.Context, tracker *optracker.OpTracker, i
 	}
 
 	if r.Builder == nil {
-		r.Builder = builderimpl.Resolve(r.App.Lang(), expSet)
+		r.Builder = builderimpl.Resolve(expSet)
 	}
 
 	vcsRevision := vcs.GetRevision(r.App.Root())

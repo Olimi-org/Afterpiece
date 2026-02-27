@@ -9,7 +9,6 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -26,10 +25,9 @@ import (
 )
 
 type templateItem struct {
-	ItemTitle string           `json:"title"`
-	Desc      string           `json:"desc"`
-	Template  string           `json:"template"`
-	Lang      cmdutil.Language `json:"lang"`
+	ItemTitle string `json:"title"`
+	Desc      string `json:"desc"`
+	Template  string `json:"template"`
 }
 
 func (i templateItem) Title() string       { return i.ItemTitle }
@@ -39,8 +37,7 @@ func (i templateItem) FilterValue() string { return i.ItemTitle }
 type CreateStep int
 
 const (
-	CreateStepLang CreateStep = iota
-	CreateStepTemplate
+	CreateStepTemplate CreateStep = iota
 	CreateStepAppName
 	CreateStepLLMRules
 )
@@ -48,7 +45,6 @@ const (
 type createFormModel struct {
 	steps []CreateStep
 
-	lang      langSelectModel
 	templates templateListModel
 	appName   appNameModel
 	llmRules  llm_rules.ToolSelectModel
@@ -152,9 +148,7 @@ func (m appNameModel) View() string {
 
 type templateListModel struct {
 	predefined string
-	filter     cmdutil.Language
 
-	all     []templateItem
 	list    list.Model
 	loading spinner.Model
 }
@@ -189,8 +183,11 @@ func (m templateListModel) Update(msg tea.Msg) (templateListModel, tea.Cmd) {
 		m.loading, _ = m.loading.Update(msg)
 
 	case loadedTemplates:
-		m.all = msg
-		m.refreshFilter()
+		var listItems []list.Item
+		for _, it := range msg {
+			listItems = append(listItems, it)
+		}
+		m.list.SetItems(listItems)
 		newList, c := m.list.Update(msg)
 		m.list = newList
 		cmds = append(cmds, c)
@@ -201,21 +198,6 @@ func (m templateListModel) Update(msg tea.Msg) (templateListModel, tea.Cmd) {
 	cmds = append(cmds, c)
 
 	return m, tea.Batch(cmds...)
-}
-
-func (m *templateListModel) UpdateFilter(lang cmdutil.Language) {
-	m.filter = lang
-	m.refreshFilter()
-}
-
-func (m *templateListModel) refreshFilter() {
-	var listItems []list.Item
-	for _, it := range m.all {
-		if it.Lang == m.filter {
-			listItems = append(listItems, it)
-		}
-	}
-	m.list.SetItems(listItems)
 }
 
 func (m templateListModel) View() string {
@@ -255,9 +237,6 @@ func (m createFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if step, ok := m.nextStep().Get(); ok {
 			switch step {
-			case CreateStepLang:
-				m.lang, c = m.lang.Update(msg)
-				cmds = append(cmds, c)
 			case CreateStepTemplate:
 				m.templates, c = m.templates.Update(msg)
 				cmds = append(cmds, c)
@@ -270,11 +249,6 @@ func (m createFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, tea.Batch(cmds...)
-
-	case langSelectDone:
-		m.removeStep(CreateStepLang)
-		m.templates.UpdateFilter(msg.Selected)
-		m.SetSize(m.width, m.height)
 
 	case llm_rules.ToolSelectDone:
 		m.removeStep(CreateStepLLMRules)
@@ -304,8 +278,6 @@ func (m createFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update all submodels for other messages.
-	m.lang, c = m.lang.Update(msg)
-	cmds = append(cmds, c)
 	m.templates, c = m.templates.Update(msg)
 	cmds = append(cmds, c)
 	m.llmRules, c = m.llmRules.Update(msg)
@@ -319,9 +291,6 @@ func (m createFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *createFormModel) SetSize(width, height int) {
 	doneHeight := lipgloss.Height(m.doneView())
 	availHeight := height - doneHeight
-
-	// CreateStepLang
-	m.lang.SetSize(width, availHeight)
 
 	// CreateStepTemplate
 	m.templates.SetSize(width, availHeight)
@@ -339,10 +308,6 @@ func (m createFormModel) doneView() string {
 		b.WriteByte('\n')
 	}
 
-	renderLangDone := func() {
-		renderDone("Language", m.lang.Selected().Display())
-	}
-
 	renderNameDone := func() {
 		renderDone("App Name", m.appName.Selected())
 	}
@@ -357,9 +322,6 @@ func (m createFormModel) doneView() string {
 
 	if m.appName.predefined != "" {
 		renderNameDone()
-	}
-	if m.templates.predefined == "" && !m.hasStep(CreateStepLang) {
-		renderLangDone()
 	}
 	if !m.initExistingApp {
 		if m.templates.predefined != "" || !m.hasStep(CreateStepTemplate) {
@@ -389,10 +351,6 @@ func (m createFormModel) View() string {
 	}
 
 	if step, ok := m.nextStep().Get(); ok {
-		if step == CreateStepLang {
-			b.WriteString(m.lang.View())
-		}
-
 		if step == CreateStepTemplate {
 			b.WriteString(m.templates.View())
 		}
@@ -421,10 +379,10 @@ func (m templateListModel) SelectedItem() (templateItem, bool) {
 	return templateItem{}, false
 }
 
-func createAppForm(inputName, inputTemplate string, inputLang cmdutil.Language, inputLLMRules llm_rules.Tool, initExistingApp bool) (appName, template string, selectedLang cmdutil.Language, selectedRules llm_rules.Tool) {
+func createAppForm(inputName, inputTemplate string, inputLLMRules llm_rules.Tool, initExistingApp bool) (appName, template string, selectedRules llm_rules.Tool) {
 	// If all is set, just return
 	if inputName != "" && inputTemplate != "" && inputLLMRules != "" {
-		return inputName, inputTemplate, inputLang, inputLLMRules
+		return inputName, inputTemplate, inputLLMRules
 	}
 
 	// If shell is non-interactive, don't prompt
@@ -432,43 +390,7 @@ func createAppForm(inputName, inputTemplate string, inputLang cmdutil.Language, 
 		if inputName == "" {
 			cmdutil.Fatal("specify an app name")
 		}
-		return inputName, inputTemplate, inputLang, inputLLMRules
-	}
-
-	var langModel langSelectModel
-	{
-		ls := list.NewDefaultItemStyles()
-		ls.SelectedTitle = ls.SelectedTitle.Foreground(lipgloss.Color(cmdutil.CodeBlue)).BorderForeground(lipgloss.Color(cmdutil.CodeBlue))
-		ls.SelectedDesc = ls.SelectedDesc.Foreground(lipgloss.Color(cmdutil.CodeBlue)).BorderForeground(lipgloss.Color(cmdutil.CodeBlue))
-		del := list.NewDefaultDelegate()
-		del.Styles = ls
-		del.ShowDescription = false
-		del.SetSpacing(0)
-
-		items := []list.Item{
-			langItem{
-				lang: cmdutil.LanguageGo,
-				desc: "Build performant and scalable backends with Go",
-			},
-			langItem{
-				lang: cmdutil.LanguageTS,
-				desc: "Build backend and full-stack applications with TypeScript",
-			},
-		}
-
-		ll := list.New(items, del, 0, 0)
-		ll.SetShowTitle(false)
-		ll.SetShowHelp(false)
-		ll.SetShowPagination(true)
-		ll.SetShowFilter(false)
-		ll.SetFilteringEnabled(false)
-		ll.SetShowStatusBar(false)
-		ll.DisableQuitKeybindings() // quit handled by createFormModel
-		langModel = langSelectModel{
-			List:       ll,
-			Predefined: inputLang,
-		}
-		langModel.SetSize(0, 20)
+		return inputName, inputTemplate, inputLLMRules
 	}
 
 	var templateModel templateListModel
@@ -543,17 +465,8 @@ func createAppForm(inputName, inputTemplate string, inputLang cmdutil.Language, 
 
 	// Setup what steps and in what order they should be presented
 	var steps []CreateStep
-	if initExistingApp {
-		if langModel.Predefined == "" {
-			steps = append(steps, CreateStepLang)
-		}
-	} else {
+	if !initExistingApp {
 		if templateModel.predefined == "" {
-			if langModel.Predefined == "" {
-				steps = append(steps, CreateStepLang)
-			} else {
-				templateModel.UpdateFilter(inputLang)
-			}
 			steps = append(steps, CreateStepTemplate)
 		}
 		if llmRulesModel.Predefined == "" {
@@ -566,7 +479,6 @@ func createAppForm(inputName, inputTemplate string, inputLang cmdutil.Language, 
 
 	m := createFormModel{
 		steps:           steps,
-		lang:            langModel,
 		templates:       templateModel,
 		llmRules:        llmRulesModel,
 		appName:         nameModel,
@@ -605,93 +517,36 @@ func createAppForm(inputName, inputTemplate string, inputLang cmdutil.Language, 
 		template = sel.Template
 	}
 
-	return appName, template, res.lang.Selected(), res.llmRules.Selected()
+	return appName, template, res.llmRules.Selected()
 }
-
-type langItem struct {
-	lang cmdutil.Language
-	desc string
-}
-
-func (i langItem) FilterValue() string          { return i.lang.Display() }
-func (i langItem) Title() string                { return i.FilterValue() }
-func (i langItem) Description() string          { return "" }
-func (i langItem) SelectedID() cmdutil.Language { return i.lang }
-
-type langSelectModel = cmdutil.SimpleSelectModel[cmdutil.Language, langItem]
-type langSelectDone = cmdutil.SimpleSelectDone[cmdutil.Language]
 
 type loadedTemplates []templateItem
-
-var defaultTutorials = []templateItem{
-	{
-		ItemTitle: "Intro to Encore.ts",
-		Desc:      "An interactive tutorial",
-		Template:  "ts/introduction",
-		Lang:      "ts",
-	},
-}
 
 var defaultTemplates = []templateItem{
 	{
 		ItemTitle: "Hello World",
 		Desc:      "A simple REST API",
 		Template:  "hello-world",
-		Lang:      "go",
-	},
-	{
-		ItemTitle: "Hello World",
-		Desc:      "A simple REST API",
-		Template:  "ts/hello-world",
-		Lang:      "ts",
 	},
 	{
 		ItemTitle: "Uptime Monitor",
 		Desc:      "Microservices, SQL Databases, Pub/Sub, Cron Jobs",
 		Template:  "uptime",
-		Lang:      "go",
-	},
-	{
-		ItemTitle: "Uptime Monitor",
-		Desc:      "Microservices, SQL Databases, Pub/Sub, Cron Jobs",
-		Template:  "ts/uptime",
-		Lang:      "ts",
 	},
 	{
 		ItemTitle: "GraphQL",
 		Desc:      "GraphQL API, Microservices, SQL Database",
 		Template:  "graphql",
-		Lang:      "go",
 	},
 	{
 		ItemTitle: "URL Shortener",
 		Desc:      "REST API, SQL Database",
 		Template:  "url-shortener",
-		Lang:      "go",
-	},
-	{
-		ItemTitle: "URL Shortener",
-		Desc:      "REST API, SQL Database",
-		Template:  "ts/url-shortener",
-		Lang:      "ts",
-	},
-	{
-		ItemTitle: "SaaS Starter",
-		Desc:      "Complete app with Clerk auth, Stripe billing, etc. (advanced)",
-		Template:  "ts/saas-starter",
-		Lang:      "ts",
 	},
 	{
 		ItemTitle: "Empty app",
 		Desc:      "Start from scratch (experienced users only)",
 		Template:  "",
-		Lang:      "go",
-	},
-	{
-		ItemTitle: "Empty app",
-		Desc:      "Start from scratch (experienced users only)",
-		Template:  "ts/empty",
-		Lang:      "ts",
 	},
 }
 
@@ -715,20 +570,8 @@ func fetchTemplates(url string, defaults []templateItem) []templateItem {
 }
 
 func loadTemplates() tea.Msg {
-	var wg sync.WaitGroup
-	var templates, tutorials []templateItem
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		templates = fetchTemplates("https://raw.githubusercontent.com/encoredev/examples/main/cli-templates.json", defaultTemplates)
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		tutorials = fetchTemplates("https://raw.githubusercontent.com/encoredev/examples/main/cli-tutorials.json", defaultTutorials)
-	}()
-	wg.Wait()
-	return loadedTemplates(append(tutorials, templates...))
+	templates := fetchTemplates("https://raw.githubusercontent.com/encoredev/examples/main/cli-templates.json", defaultTemplates)
+	return loadedTemplates(templates)
 }
 
 // incrementalValidateNameInput is like validateName but only

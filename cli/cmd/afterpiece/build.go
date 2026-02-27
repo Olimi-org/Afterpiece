@@ -48,13 +48,13 @@ func init() {
 			p.Goos = targetOS.Value
 			p.AppRoot, _ = determineAppRoot()
 			p.WorkspaceRoot = determineWorkspaceRoot(p.AppRoot)
-			file, err := appfile.ParseFile(filepath.Join(p.AppRoot, appfile.Name))
-			if err == nil {
-				if !cmd.Flag("base").Changed && file.Lang == appfile.LangTS {
-					p.BaseImg = "node:slim"
-				}
-				if !cmd.Flag("cgo").Changed {
-					p.CgoEnabled = file.Build.CgoEnabled
+			configPath, findErr := appfile.FindProjectConfig(p.AppRoot)
+			if findErr == nil {
+				file, err := appfile.ParseFile(configPath)
+				if err == nil {
+					if !cmd.Flag("cgo").Changed {
+						p.CgoEnabled = file.Build.CgoEnabled
+					}
 				}
 			}
 			p.ImageTag = args[0]

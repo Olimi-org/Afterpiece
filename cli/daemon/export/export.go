@@ -21,7 +21,6 @@ import (
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/internal/env"
 	"encr.dev/internal/version"
-	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/cueutil"
@@ -60,8 +59,7 @@ func Docker(ctx context.Context, app *apps.Instance, req *daemonpb.ExportRequest
 		// Use the local JS runtime if this is a development build.
 		UseLocalJSRuntime: version.Channel == version.DevBuild,
 	}
-	appLang := app.Lang()
-	bld := builderimpl.Resolve(appLang, expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 	parse, err := bld.Parse(ctx, builder.ParseParams{
 		Build:       buildInfo,
@@ -93,15 +91,6 @@ func Docker(ctx context.Context, app *apps.Instance, req *daemonpb.ExportRequest
 		return false, errors.Wrap(err, "compilation failed")
 	}
 
-	var crossNodeRuntime option.Option[dockerbuild.HostPath]
-	if appLang == appfile.LangTS && buildInfo.IsCrossBuild() {
-		binary, err := downloadBinary(req.Goos, req.Goarch, "encore-runtime.node", log)
-		if err != nil {
-			return false, errors.Wrap(err, "download runtime binaries")
-		}
-		crossNodeRuntime = option.Some(binary)
-	}
-
 	buildSettings, err := app.BuildSettings()
 	if err != nil {
 		return false, errors.Wrap(err, "get build settings")
@@ -113,11 +102,10 @@ func Docker(ctx context.Context, app *apps.Instance, req *daemonpb.ExportRequest
 		BundleSource:      option.Option[dockerbuild.BundleSourceSpec]{},
 		DockerBaseImage:   option.AsOptional(params.BaseImageTag),
 		Runtimes:          dockerbuild.HostPath(env.EncoreRuntimesPath()),
-		NodeRuntime:       crossNodeRuntime,
 		ProcessPerService: buildSettings.Docker.ProcessPerService,
 	}
 
-	if buildSettings.Docker.BundleSource || appLang == appfile.LangTS {
+	if buildSettings.Docker.BundleSource {
 		workspaceRoot := req.WorkspaceRoot
 		appRoot := app.Root()
 
@@ -128,7 +116,7 @@ func Docker(ctx context.Context, app *apps.Instance, req *daemonpb.ExportRequest
 
 		relPath = filepath.ToSlash(relPath)
 
-		includedPaths, err := dockerbuild.DetermineIncludes(appLang, buildSettings.Docker.BundleSource, workspaceRoot, appRoot)
+		includedPaths, err := dockerbuild.DetermineIncludes(buildSettings.Docker.BundleSource, workspaceRoot, appRoot)
 		if err != nil {
 			return false, errors.Wrap(err, "determine extra includes")
 		}

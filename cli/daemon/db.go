@@ -44,7 +44,7 @@ func (s *Server) DBConnect(ctx context.Context, req *daemonpb.DBConnectRequest) 
 		return s.dbConnectLocal(ctx, req)
 	}
 
-	appID, err := appfile.Slug(req.AppRoot)
+	appID, err := appfile.ID(req.AppRoot)
 	if err != nil {
 		return nil, err
 	} else if appID == "" {
@@ -70,7 +70,7 @@ func (s *Server) dbConnectLocal(ctx context.Context, req *daemonpb.DBConnectRequ
 	}
 
 	// Parse the app to figure out what infrastructure is needed.
-	bld := builderimpl.Resolve(app.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 	parse, err := bld.Parse(ctx, builder.ParseParams{
 		Build:       builder.DefaultBuildInfo(),
@@ -161,7 +161,7 @@ func (s *Server) dbConnectLocal(ctx context.Context, req *daemonpb.DBConnectRequ
 func (s *Server) DBProxy(params *daemonpb.DBProxyRequest, stream daemonpb.Daemon_DBProxyServer) (err error) {
 	ctx := stream.Context()
 
-	appID, err := appfile.Slug(params.AppRoot)
+	appID, err := appfile.ID(params.AppRoot)
 	if err != nil {
 		return err
 	} else if appID == "" && params.EnvName != "local" {
@@ -202,7 +202,7 @@ func (s *Server) DBProxy(params *daemonpb.DBProxyRequest, stream daemonpb.Daemon
 		}
 
 		// Parse the app to figure out what infrastructure is needed.
-		bld := builderimpl.Resolve(app.Lang(), expSet)
+		bld := builderimpl.Resolve(expSet)
 		defer fns.CloseIgnore(bld)
 		parse, err := bld.Parse(ctx, builder.ParseParams{
 			Build:       builder.DefaultBuildInfo(),
@@ -303,7 +303,7 @@ func (s *Server) DBReset(req *daemonpb.DBResetRequest, stream daemonpb.Daemon_DB
 	}
 
 	// Parse the app to figure out what infrastructure is needed.
-	bld := builderimpl.Resolve(app.Lang(), expSet)
+	bld := builderimpl.Resolve(expSet)
 	defer fns.CloseIgnore(bld)
 	parse, err := bld.Parse(stream.Context(), builder.ParseParams{
 		Build:       builder.DefaultBuildInfo(),
