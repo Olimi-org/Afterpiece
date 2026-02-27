@@ -10,6 +10,7 @@ import (
 
 	"encr.dev/cli/cmd/afterpiece/cmdutil"
 	"encr.dev/cli/internal/jsonrpc2"
+	"encr.dev/pkg/appfile"
 	daemonpb "encr.dev/proto/afterpiece/daemon"
 )
 
@@ -283,7 +284,7 @@ func findAppRootDown(dir string, maxDepth int) string {
 			return nil
 		}
 
-		if !d.IsDir() && d.Name() == "encore.app" {
+		if !d.IsDir() && appfile.IsAnyOf(d.Name()) {
 			found = filepath.Dir(path)
 			return fs.SkipAll // stop walking
 		}

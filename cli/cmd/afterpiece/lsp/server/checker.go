@@ -72,6 +72,9 @@ func (c *Checker) Run(ctx context.Context) (*CheckResult, error) {
 				continue
 			}
 
+			// Deserialize the errinsrc JSON into a generic structure.
+			// We can't import errinsrc.ErrInSrc directly due to internal package
+			// restrictions, so we unmarshal into a compatible anonymous struct.
 			var errList struct {
 				List []errInSrc `json:"list"`
 			}
