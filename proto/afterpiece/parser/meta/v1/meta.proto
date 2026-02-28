@@ -4,7 +4,7 @@ option go_package = "encr.dev/proto/afterpiece/parser/meta/v1";
 
 package encore.parser.meta.v1;
 
-import "encore/parser/schema/v1/schema.proto";
+import "afterpiece/parser/schema/v1/schema.proto";
 
 // Data is the metadata associated with an app version.
 message Data {
