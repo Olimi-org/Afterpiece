@@ -79,6 +79,10 @@ jobs:
           echo "sqlc downloaded"
           ls -la dist/
 
+      - name: Generate Protobuf
+        shell: bash
+        run: cd proto && bash ./gen.sh
+
       - name: Build
         run: task ${{ matrix.platform }}:build:${{ matrix.arch }}
         shell: bash
