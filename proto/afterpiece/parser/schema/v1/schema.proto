@@ -261,4 +261,6 @@ enum Builtin {
   UINT    = 19;
 
   DECIMAL = 20;
+
+  FILE_UPLOAD = 21; // Represents an uploaded file (*storage.File)
 }
