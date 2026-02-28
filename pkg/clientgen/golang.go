@@ -338,8 +338,8 @@ func (g *golang) generateServiceClient(file *File, service *meta.Service, tags c
 			continue
 		}
 
-		// streaming endpoints not supported yet
-		if rpc.StreamingRequest || rpc.StreamingResponse {
+		// streaming and upload endpoints not supported yet
+		if rpc.StreamingRequest || rpc.StreamingResponse || rpc.Proto == meta.RPC_UPLOAD {
 			continue
 		}
 
@@ -375,8 +375,8 @@ func (g *golang) generateServiceClient(file *File, service *meta.Service, tags c
 			continue
 		}
 
-		// streaming endpoints not supported yet
-		if rpc.StreamingRequest || rpc.StreamingResponse {
+		// streaming and upload endpoints not supported yet
+		if rpc.StreamingRequest || rpc.StreamingResponse || rpc.Proto == meta.RPC_UPLOAD {
 			continue
 		}
 

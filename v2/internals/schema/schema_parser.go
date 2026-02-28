@@ -370,6 +370,7 @@ const (
 	uuidImportPath   paths.Pkg = "encore.dev/types/uuid"
 	optionImportPath paths.Pkg = "encore.dev/types/option"
 	authImportPath   paths.Pkg = "encore.dev/beta/auth"
+	apiImportPath    paths.Pkg = "encore.dev/appruntime/apisdk/api"
 )
 
 // parseRecv parses a receiver AST into a Receiver.
@@ -422,6 +423,8 @@ func (r *typeResolver) parseEncoreBuiltin(pkgPath paths.Pkg, name string) (Built
 		return Time, true
 	case pkgPath == "encoding/json" && name == "RawMessage":
 		return JSON, true
+	case pkgPath == apiImportPath && name == "File":
+		return FileUpload, true
 	}
 	return unsupported, false
 }

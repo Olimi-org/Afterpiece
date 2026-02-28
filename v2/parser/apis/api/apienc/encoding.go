@@ -26,6 +26,7 @@ const (
 	Body       WireLoc = "body"       // Parameter is placed in the body
 	Cookie     WireLoc = "cookie"     // Parameter is placed in cookies
 	HTTPStatus WireLoc = "httpstatus" // Parameter represents the HTTP status code
+	Multipart  WireLoc = "multipart"  // Parameter is a file in a multipart upload
 )
 
 var (
@@ -150,10 +151,11 @@ type RequestEncoding struct {
 	HeaderParameters []*ParameterEncoding `json:"header_parameters"`
 	QueryParameters  []*ParameterEncoding `json:"query_parameters"`
 	BodyParameters   []*ParameterEncoding `json:"body_parameters"`
+	FileParameters   []*ParameterEncoding `json:"file_parameters"`
 }
 
 func (r *RequestEncoding) AllParameters() []*ParameterEncoding {
-	return append(append(r.HeaderParameters, r.QueryParameters...), r.BodyParameters...)
+	return append(append(append(r.HeaderParameters, r.QueryParameters...), r.BodyParameters...), r.FileParameters...)
 }
 
 // ParameterEncoding expresses how a parameter should be encoded on the wire
@@ -328,7 +330,7 @@ func DescribeRequest(errs *perr.List, requestAST schema.Param, requestSchema sch
 			return nil
 		}
 
-		if keys := keyDiff(fields, Query, Header, Body); len(keys) > 0 {
+		if keys := keyDiff(fields, Query, Header, Body, Multipart); len(keys) > 0 {
 			err := errRequestInvalidLocation.AtGoNode(requestSchema.ASTExpr())
 
 			for _, k := range keys {
@@ -344,6 +346,7 @@ func DescribeRequest(errs *perr.List, requestAST schema.Param, requestSchema sch
 			QueryParameters:  fields[Query],
 			HeaderParameters: fields[Header],
 			BodyParameters:   fields[Body],
+			FileParameters:   fields[Multipart],
 		})
 	}
 
@@ -451,6 +454,10 @@ func IgnoreField(field schema.StructField) bool {
 		if tag.Key == "encore" && tag.Name == "httpstatus" {
 			return true
 		}
+		// Skip fields with encore:"file" tag - they're file upload fields, not JSON
+		if tag.Key == "encore" && tag.Name == "file" {
+			return true
+		}
 	}
 	return false
 }
@@ -492,6 +499,23 @@ func describeParam(errs *perr.List, encodingHints *encodingHints, field schema.S
 				WireName:  "httpstatus",
 				Location:  HTTPStatus,
 				OmitEmpty: false,
+				Doc:       field.Doc,
+				Type:      field.Type,
+			}, true
+		}
+
+		// Handle fields with encore:"file" tag
+		if tag.Key == "encore" && tag.Name == "file" {
+			if !isFileUploadType(field.Type) {
+				errs.Add(errFileFieldMustBeFileType.AtGoNode(field.AST))
+				return nil, false
+			}
+
+			return &ParameterEncoding{
+				SrcName:   srcName,
+				WireName:  srcName,
+				Location:  Multipart,
+				OmitEmpty: tag.HasOption("optional"),
 				Doc:       field.Doc,
 				Type:      field.Type,
 			}, true
@@ -553,4 +577,20 @@ func isValidHTTPStatusType(typ schema.Type) bool {
 	default:
 		return false
 	}
+}
+
+// isFileUploadType returns true if the given type is *api.File (a pointer to FileUpload builtin)
+// or the FileUpload builtin directly.
+func isFileUploadType(typ schema.Type) bool {
+	// Check if it's a direct FileUpload builtin (after pointer unwrapping by the parser)
+	if builtin, ok := typ.(schema.BuiltinType); ok {
+		return builtin.Kind == schema.FileUpload
+	}
+	// Also accept *api.File (pointer to FileUpload)
+	if ptr, ok := typ.(schema.PointerType); ok {
+		if builtin, ok := ptr.Elem.(schema.BuiltinType); ok {
+			return builtin.Kind == schema.FileUpload
+		}
+	}
+	return false
 }

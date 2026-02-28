@@ -194,6 +194,70 @@ func EncodeBody(gu *genutil.Helper, g *Group, streamExpr, paramExpr *Statement, 
 	g.Line()
 }
 
+// DecodeMultipart generates code for decoding multipart/form-data requests.
+// File parameters are decoded into *api.File fields, and body parameters
+// are decoded from JSON-stringified form values.
+func DecodeMultipart(g *Group, httpReqExpr *Statement, paramsExpr *Statement, dec *genutil.TypeUnmarshaller,
+	fileParams []*apienc.ParameterEncoding, bodyParams []*apienc.ParameterEncoding) {
+	if len(fileParams) == 0 && len(bodyParams) == 0 {
+		return
+	}
+
+	const apiPkg = "encore.dev/appruntime/apisdk/api"
+
+	g.Comment("Decode multipart form data")
+	g.List(Id("reader"), Err()).Op(":=").Add(httpReqExpr.Clone()).Dot("MultipartReader").Call()
+	g.If(Err().Op("!=").Nil()).Block(
+		Return(Nil(), Nil(), Qual("fmt", "Errorf").Call(Lit("failed to read multipart form: %w"), Err())),
+	)
+	g.Line()
+
+	// Iterate over parts
+	g.For().BlockFunc(func(g *Group) {
+		g.List(Id("part"), Err()).Op(":=").Id("reader").Dot("NextPart").Call()
+		g.If(Err().Op("==").Qual("io", "EOF")).Block(Break())
+		g.If(Err().Op("!=").Nil()).Block(
+			Return(Nil(), Nil(), Qual("fmt", "Errorf").Call(Lit("failed to read multipart part: %w"), Err())),
+		)
+		g.Line()
+
+		g.Id("fieldName").Op(":=").Id("part").Dot("FormName").Call()
+
+		// Switch on field name to route to the right parameter
+		g.Switch(Id("fieldName")).BlockFunc(func(g *Group) {
+			// File parameters
+			for _, f := range fileParams {
+				g.Case(Lit(f.SrcName)).BlockFunc(func(g *Group) {
+					g.Add(paramsExpr.Clone()).Dot(f.SrcName).Op("=").Op("&").Qual(apiPkg, "File").Values(Dict{
+						Id("Reader"):      Id("part"),
+						Id("Filename"):    Id("part").Dot("FileName").Call(),
+						Id("ContentType"): Id("part").Dot("Header").Dot("Get").Call(Lit("Content-Type")),
+						Id("Size"):        Lit(-1),
+					})
+				})
+			}
+
+			// Body parameters (JSON-stringified form values)
+			for _, f := range bodyParams {
+				g.Case(Lit(f.WireName)).BlockFunc(func(g *Group) {
+					g.List(Id("data"), Err()).Op(":=").Qual("io", "ReadAll").Call(Id("part"))
+					g.If(Err().Op("!=").Nil()).Block(
+						Return(Nil(), Nil(), Qual("fmt", "Errorf").Call(Lit("failed to read form field %s: %w"), Lit(f.WireName), Err())),
+					)
+					g.Add(dec.ParseJSON(f.SrcName, Qual(jsonIterPkg, "ParseBytes").Call(Id("json"), Id("data")),
+						Op("&").Add(paramsExpr.Clone()).Dot(f.SrcName)))
+				})
+			}
+
+			g.Default().Block(
+				Comment("Skip unknown form fields"),
+				List(Id("_"), Id("_")).Op("=").Qual("io", "Copy").Call(Qual("io", "Discard"), Id("part")),
+			)
+		})
+	})
+	g.Line()
+}
+
 // BuildErr returns an expression for returning an encore.dev/beta/errs.Error with the given code and message.
 func BuildErr(code, msg string) *Statement {
 	p := "encore.dev/beta/errs"

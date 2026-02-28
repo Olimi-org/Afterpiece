@@ -248,7 +248,12 @@ func (d *requestDesc) renderRequestDecoding(g *Group, dec *genutil.TypeUnmarshal
 func (d *requestDesc) decodeRequestParameters(g *Group, dec *genutil.TypeUnmarshaller, req *apienc.RequestEncoding) {
 	apigenutil.DecodeHeaders(g, d.httpReqExpr().Dot("Header"), Id("params"), dec, req.HeaderParameters)
 	apigenutil.DecodeQuery(g, d.httpReqExpr().Dot("URL").Dot("Query").Call(), Id("params"), dec, req.QueryParameters)
-	apigenutil.DecodeBody(g, d.httpReqExpr().Dot("Body"), Id("params"), dec, req.BodyParameters)
+	if len(req.FileParameters) > 0 {
+		// Upload endpoint: decode multipart form data (file fields + body fields from form values)
+		apigenutil.DecodeMultipart(g, d.httpReqExpr(), Id("params"), dec, req.FileParameters, req.BodyParameters)
+	} else {
+		apigenutil.DecodeBody(g, d.httpReqExpr().Dot("Body"), Id("params"), dec, req.BodyParameters)
+	}
 }
 
 // Clone returns the function literal to clone the request.

@@ -159,6 +159,7 @@ message RPC {
   enum Protocol {
     REGULAR = 0;
     RAW = 1;
+    UPLOAD = 2;
   }
 
   message ExposeOptions {}

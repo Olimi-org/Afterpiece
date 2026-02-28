@@ -80,6 +80,11 @@ type Desc[Req, Resp any] struct {
 	// If raw is true, RawHandler is set and AppHandler and EncodeResp are nil.
 	Raw bool
 
+	// If Upload is true, the endpoint accepts multipart/form-data uploads.
+	// Upload endpoints use the same AppHandler as typed RPCs, but the request
+	// is decoded from multipart form data instead of JSON.
+	Upload bool
+
 	// If Fallback is true, the handler is a fallback handler
 	// for when other routes don't match.
 	Fallback bool

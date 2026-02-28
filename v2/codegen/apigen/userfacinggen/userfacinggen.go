@@ -56,7 +56,7 @@ func genUserFacing(gen *codegen.Generator, svc *apiframework.ServiceDesc, withIm
 		f.Jen.Comment("support service-to-service API calls to raw endpoints.")
 		f.Jen.Type().Id("Interface").InterfaceFunc(func(g *Group) {
 			for _, ep := range svc.Endpoints {
-				if !ep.Raw {
+				if !ep.Raw && !ep.Upload {
 					getEndpointPrototype(gen.Util, g, ep, false, option.None[*codegen.VarDecl]())
 					count++
 					g.Line()

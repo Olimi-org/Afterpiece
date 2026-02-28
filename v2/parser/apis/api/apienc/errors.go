@@ -88,4 +88,9 @@ var (
 		"Invalid response type",
 		"Fields tagged with encore:\"httpstatus\" must be of an integer type.",
 	)
+
+	errFileFieldMustBeFileType = errRange.New(
+		"Invalid request type",
+		"Fields tagged with encore:\"file\" must be of type *api.File.",
+	)
 )

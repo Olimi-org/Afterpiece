@@ -24,6 +24,7 @@ const (
 	Query     ParameterLocation = "query"     // Parameter is placed in the query string
 	Body      ParameterLocation = "body"      // Parameter is placed in the body
 	Cookie    ParameterLocation = "cookie"    // Parameter is placed in cookies
+	File      ParameterLocation = "file"      // Parameter is a file in a multipart upload
 )
 
 var (
@@ -180,6 +181,7 @@ type RequestEncoding struct {
 	QueryParameters  []*ParameterEncoding `json:"query_parameters"`
 	CookieParameters []*ParameterEncoding `json:"cookie_parameters"`
 	BodyParameters   []*ParameterEncoding `json:"body_parameters"`
+	FileParameters   []*ParameterEncoding `json:"file_parameters"`
 }
 
 // ParameterEncodingMap returns the parameter encodings as a map, keyed by SrcName.
@@ -190,7 +192,7 @@ func (e *RequestEncoding) ParameterEncodingMap() map[string]*ParameterEncoding {
 // ParameterEncodingMapByName returns the parameter encodings as a map, keyed by Name.
 // Conflicts result in an undefined encoding getting set.
 func (e *RequestEncoding) ParameterEncodingMapByName() map[string][]*ParameterEncoding {
-	return toEncodingMultiMap(nameKey, e.HeaderParameters, e.QueryParameters, e.BodyParameters, e.CookieParameters)
+	return toEncodingMultiMap(nameKey, e.HeaderParameters, e.QueryParameters, e.BodyParameters, e.CookieParameters, e.FileParameters)
 }
 
 // ParameterEncoding expresses how a parameter should be encoded on the wire
@@ -307,6 +309,7 @@ func DescribeRPC(appMetaData *meta.Data, rpc *meta.RPC, options *Options) (*RPCE
 			BodyParameters:   defaultEncoding.BodyParameters,
 			QueryParameters:  defaultEncoding.QueryParameters,
 			CookieParameters: defaultEncoding.CookieParameters,
+			FileParameters:   defaultEncoding.FileParameters,
 		}
 	}
 
@@ -647,7 +650,7 @@ func DescribeRequest(appMetaData *meta.Data, requestSchema *schema.Type, options
 			}
 		}
 
-		if keys := keyDiff(fields, Query, Header, Body, Cookie); len(keys) > 0 {
+		if keys := keyDiff(fields, Query, Header, Body, Cookie, File); len(keys) > 0 {
 			return nil, errors.Newf("request must only contain Query, Body, Header and Cookie parameters. Found: %v", keys)
 		}
 		reqs = append(reqs, &RequestEncoding{
@@ -656,6 +659,7 @@ func DescribeRequest(appMetaData *meta.Data, requestSchema *schema.Type, options
 			HeaderParameters: fields[Header],
 			CookieParameters: fields[Cookie],
 			BodyParameters:   fields[Body],
+			FileParameters:   fields[File],
 		})
 	}
 
@@ -711,6 +715,22 @@ func IgnoreField(field *schema.Field) bool {
 //
 // It returns nil, nil if the field is not to be encoded.
 func describeParam(lang meta.Lang, encodingHints *encodingHints, field *schema.Field) (*ParameterEncoding, error) {
+	// Check for file upload fields first - they bypass normal encoding
+	for _, tag := range field.Tags {
+		if tag.Key == "encore" && tag.Name == "file" {
+			return &ParameterEncoding{
+				Name:       field.Name,
+				SrcName:    field.Name,
+				Doc:        field.Doc,
+				Type:       field.Typ,
+				RawTag:     field.RawTag,
+				Optional:   field.Optional,
+				Location:   File,
+				WireFormat: field.Name,
+			}, nil
+		}
+	}
+
 	location := encodingHints.defaultLocation
 	name := formatName(lang, encodingHints.defaultLocation, field.Name)
 	param := ParameterEncoding{

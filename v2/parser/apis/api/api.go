@@ -40,10 +40,11 @@ type Endpoint struct {
 	Access           AccessType
 	AccessField      option.Option[directive.Field]
 	Raw              bool
+	Upload           bool
 	Path             *resourcepaths.Path
 	HTTPMethods      []string
 	HTTPMethodsField option.Option[directive.Field]
-	Request          schema.Type // request data; nil for Raw Endpoints
+	Request          schema.Type // request data; nil for Raw and Upload Endpoints
 	Response         schema.Type // response data; nil for Raw Endpoints
 	Tags             selector.Set
 	Recv             option.Option[*schema.Receiver] // None if not a method
@@ -137,6 +138,8 @@ func Parse(d ParseData) *Endpoint {
 	// Validate the API.
 	if rpc.Raw {
 		initRawRPC(d.Errs, rpc)
+	} else if rpc.Upload {
+		initUploadRPC(d.Errs, rpc)
 	} else {
 		initTypedRPC(d.Errs, rpc)
 	}
@@ -146,6 +149,9 @@ func Parse(d ParseData) *Endpoint {
 	if len(rpc.HTTPMethods) == 0 {
 		if rpc.Raw {
 			rpc.HTTPMethods = []string{"*"}
+		} else if rpc.Upload {
+			// Upload endpoints always use POST.
+			rpc.HTTPMethods = []string{"POST"}
 		} else {
 			// For non-raw endpoints, if there's a request payload
 			// default to POST-only.
@@ -269,6 +275,19 @@ func initRawRPC(errs *perr.List, endpoint *Endpoint) {
 	}
 }
 
+// initUploadRPC validates the function signature for an upload endpoint.
+// Upload endpoints use the same signature pattern as typed RPCs:
+//
+//	func(context.Context, *RequestStruct) error
+//	func(context.Context, *RequestStruct) (*ResponseData, error)
+//
+// The request struct must contain at least one *api.File field tagged with
+// `encore:"file"`. This is validated at the encoding layer, not here.
+func initUploadRPC(errs *perr.List, endpoint *Endpoint) {
+	// Upload endpoints use the same signature as typed RPCs.
+	initTypedRPC(errs, endpoint)
+}
+
 // validatePathParam validates that the given func parameter is compatible with the given path segment.
 // It checks that the names match and that the func parameter is of a permissible type.
 // It returns the func parameter's builtin kind.
@@ -301,15 +320,17 @@ func validatePathParam(errs *perr.List, param schema.Param, seg *resourcepaths.S
 // and returns an API with the respective fields set.
 func validateDirective(errs *perr.List, dir *directive.Directive) (*Endpoint, bool) {
 	endpoint := &Endpoint{
-		Raw: dir.HasOption("raw"),
+		Raw:    dir.HasOption("raw"),
+		Upload: dir.HasOption("upload"),
 	}
 
 	var accessField directive.Field
 	var rawTag directive.Field
+	var uploadTag directive.Field
 
 	accessOptions := []string{"public", "private", "auth"}
 	ok := directive.Validate(errs, dir, directive.ValidateSpec{
-		AllowedOptions: append([]string{"raw", "sensitive"}, accessOptions...),
+		AllowedOptions: append([]string{"raw", "upload", "sensitive"}, accessOptions...),
 		AllowedFields:  []string{"path", "method"},
 
 		ValidateOption: func(errs *perr.List, opt directive.Field) (ok bool) {
@@ -327,6 +348,8 @@ func validateDirective(errs *perr.List, dir *directive.Directive) (*Endpoint, bo
 			switch opt.Value {
 			case "raw":
 				rawTag = opt
+			case "upload":
+				uploadTag = opt
 			case "sensitive":
 				endpoint.Sensitive = true
 			}
@@ -387,6 +410,14 @@ func validateDirective(errs *perr.List, dir *directive.Directive) (*Endpoint, bo
 	if endpoint.Access == Private && endpoint.Raw {
 		// We don't support private raw APIs for now.
 		errs.Add(errRawEndpointCantBePrivate.AtGoNode(rawTag, errors.AsError("declared as raw here")).AtGoNode(accessField, errors.AsError("set as private here")))
+		return nil, false
+	}
+	if endpoint.Access == Private && endpoint.Upload {
+		errs.Add(errUploadEndpointCantBePrivate.AtGoNode(uploadTag, errors.AsError("declared as upload here")).AtGoNode(accessField, errors.AsError("set as private here")))
+		return nil, false
+	}
+	if endpoint.Raw && endpoint.Upload {
+		errs.Add(errUploadAndRawMutuallyExclusive.AtGoNode(rawTag, errors.AsError("declared as raw here")).AtGoNode(uploadTag, errors.AsError("declared as upload here")))
 		return nil, false
 	}
 

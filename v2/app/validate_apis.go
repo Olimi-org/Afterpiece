@@ -70,6 +70,14 @@ func (d *Desc) validateAPIs(pc *parsectx.Context, fw *apiframework.AppDesc, resu
 							AtGoNode(ep.Decl.AST.Name, errors.AsHelp("defined here")),
 					)
 				}
+			} else if ep.Upload {
+				for _, uploadUsage := range result.Usages(ep) {
+					pc.Errs.Add(
+						api.ErrUploadEndpointsCannotBeCalled.
+							AtGoNode(uploadUsage, errors.AsError("used here")).
+							AtGoNode(ep.Decl.AST.Name, errors.AsHelp("defined here")),
+					)
+				}
 			} else {
 				// If typed endpoint, validate the types of the request and response
 				if ep.Request != nil {
