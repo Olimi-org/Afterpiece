@@ -15,6 +15,7 @@ import (
 	_ "encr.dev/cli/cmd/afterpiece/app"
 	_ "encr.dev/cli/cmd/afterpiece/config"
 	_ "encr.dev/cli/cmd/afterpiece/k8s"
+	_ "encr.dev/cli/cmd/afterpiece/lsp"
 	_ "encr.dev/cli/cmd/afterpiece/namespace"
 	_ "encr.dev/cli/cmd/afterpiece/secrets"
 )
