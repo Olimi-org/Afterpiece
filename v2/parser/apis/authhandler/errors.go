@@ -79,6 +79,17 @@ note: *Params and *UserData are custom data types you define
 		"Multiple auth handlers were found in the application. Encore only allows one auth handler to be defined per application.",
 	)
 
+	ErrInvalidCookieFieldType = errRange.New(
+		"Invalid cookie field type",
+		"Fields with a `cookie` tag must be of type *http.Cookie.",
+
+		errors.WithDetails(
+			"Cookie-tagged fields must use the *http.Cookie type from the net/http package. "+
+				"You can access the cookie value via the .Value field, or use .String() for the serialized form.\n\n"+
+				authLink,
+		),
+	)
+
 	ErrNoAuthHandlerDefined = errRange.New(
 		"No Auth Handler Defined",
 		"An auth handler must be defined to use the auth directive on an API.",

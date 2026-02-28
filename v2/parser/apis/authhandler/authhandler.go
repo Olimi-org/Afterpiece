@@ -122,8 +122,12 @@ func Parse(d ParseData) *AuthHandler {
 	return ah
 }
 
-// validateStructFields checks that the struct fields have the correct tags.
-// and all fields are either a header or query string
+// httpCookieType is the qualified name for net/http.Cookie.
+var httpCookieType = pkginfo.Q("net/http", "Cookie")
+
+// validateStructFields checks that the struct fields have the correct tags,
+// all fields are either a header, query string, or cookie,
+// and cookie-tagged fields are of type *http.Cookie.
 func validateStructFields(errs *perr.List, ref schema.StructType) {
 	fieldErr := ErrInvalidFieldTags
 
@@ -142,11 +146,22 @@ nextField:
 			tag, err := field.Tag.Get(tagKey)
 			if err == nil {
 				switch tagKey {
-				case "header", "query", "qs", "cookie":
+				case "header", "query", "qs":
 					if tag.Name != "" && tag.Name != "-" {
 						continue nextField
 					} else {
 						errMsg = "you must specify a name for this field"
+					}
+				case "cookie":
+					if tag.Name == "" || tag.Name == "-" {
+						errMsg = "you must specify a name for this field"
+					} else {
+						// Validate that cookie-tagged fields are *http.Cookie
+						info, ok := schemautil.DerefNamedInfo(field.Type, true)
+						if !ok || info.QualifiedName() != httpCookieType {
+							errs.Add(ErrInvalidCookieFieldType.AtGoNode(field.AST))
+						}
+						continue nextField
 					}
 				}
 			}
