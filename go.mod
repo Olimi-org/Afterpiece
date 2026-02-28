@@ -1,12 +1,9 @@
 module encr.dev
 
-go 1.24.0
-
-toolchain go1.24.9
+go 1.26.0
 
 require (
 	cloud.google.com/go/storage v1.43.0
-	modernc.org/sqlite v1.37.0
 	cuelang.org/go v0.4.3
 	encore.dev v1.1.0
 	github.com/agnivade/levenshtein v1.1.1
@@ -85,6 +82,7 @@ require (
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.6
 	gotest.tools/v3 v3.5.1
+	modernc.org/sqlite v1.37.0
 	sigs.k8s.io/yaml v1.3.0
 )
 

@@ -787,16 +787,18 @@ func lookupDirective(nodes ...*ast.CommentGroup) keepDirective {
 }
 
 func parseDirective(node *ast.CommentGroup) keepDirective {
-	if node != nil && node.List != nil {
-		for _, comment := range node.List {
-			text := strings.TrimSpace(comment.Text)
-			switch text {
-			case "//publicapigen:keep":
-				return mustKeep
-			case "//publicapigen:drop":
-				return mustDrop
-			default:
-				continue
+	if node == nil || node.List == nil {
+		return none
+	}
+	for _, comment := range node.List {
+		if d, ok := ast.ParseDirective(comment.Slash, comment.Text); ok {
+			if d.Tool == "publicapigen" {
+				switch d.Name {
+				case "keep":
+					return mustKeep
+				case "drop":
+					return mustDrop
+				}
 			}
 		}
 	}
@@ -804,19 +806,17 @@ func parseDirective(node *ast.CommentGroup) keepDirective {
 }
 
 func clearDirectives(node *ast.CommentGroup) {
-	if node != nil && node.List != nil {
-		for i, comment := range node.List {
-			text := strings.TrimSpace(comment.Text)
-			switch text {
-			case "//publicapigen:keep":
-			case "//publicapigen:drop":
-			default:
-				continue
-			}
-			if i == 0 {
-				comment.Text = "  "
-			} else {
-				comment.Text = "//" // empty comment line as I want the docs to remain active, but I can't remove this without causing a blank line between the comment group and what ever it's associated with
+	if node == nil || node.List == nil {
+		return
+	}
+	for i, comment := range node.List {
+		if d, ok := ast.ParseDirective(comment.Slash, comment.Text); ok {
+			if d.Tool == "publicapigen" && (d.Name == "keep" || d.Name == "drop") {
+				if i == 0 {
+					comment.Text = "  "
+				} else {
+					comment.Text = "//"
+				}
 			}
 		}
 	}

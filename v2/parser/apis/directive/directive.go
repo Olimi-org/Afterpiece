@@ -1,7 +1,6 @@
 package directive
 
 import (
-	"bytes"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -129,65 +128,34 @@ func Parse(errs *perr.List, cg *ast.CommentGroup) (dir *Directive, doc string, o
 		return nil, "", true
 	}
 
-	// Go has standardized on directives in the form "//[a-z0-9]+:[a-z0-9+]".
-	// Encore has allowed a space between // and the Directive,
-	// but we would like to migrate to the standard syntax.
-	//
-	// First try the standard syntax and fall back to the legacy syntax
-	// if we don't find any directives.
-
-	// Standard syntax
 	var dirs []*Directive
 	for _, c := range cg.List {
-		const prefix = "//encore:"
-		if strings.HasPrefix(c.Text, prefix) {
-			dir, ok := parseOne(errs, c.Pos()+2, c.Text[len(prefix):])
-			if !ok {
-				return nil, "", false
+		text := c.Text
+		trim := 0
+		if strings.HasPrefix(text, "//") {
+			after := text[2:]
+			trimmed := strings.TrimLeft(after, " \t")
+			if len(trimmed) < len(after) && (strings.HasPrefix(trimmed, "encore:") || strings.HasPrefix(trimmed, "ap:")) {
+				trim = len(after) - len(trimmed)
+				text = "//" + trimmed
 			}
-			dir.AST = cg
-			dirs = append(dirs, &dir)
 		}
-	}
-	if len(dirs) == 1 {
-		doc := cg.Text() // skips directives for us
-		return dirs[0], doc, true
-	} else if len(dirs) > 1 {
-		err := errMultipleDirectives
-		for _, dir := range dirs {
-			err = err.AtGoNode(dir)
-		}
-		errs.Add(err)
-		return nil, "", false
-	}
 
-	// Legacy syntax
-	lines := strings.Split(cg.Text(), "\n")
-	var docLines []string
-
-	for _, line := range lines {
-		const prefix = "encore:"
-		if strings.HasPrefix(line, prefix) {
-			pos := cg.Pos()
-
-			// Find the position of the directive.
-			for _, c := range cg.List {
-				idx := bytes.Index([]byte(c.Text), []byte(line))
-				if idx >= 0 {
-					pos = c.Pos() + token.Pos(idx)
-					break
-				}
-			}
-
-			dir, ok := parseOne(errs, pos, line[len(prefix):])
-			if !ok {
-				return nil, "", false
-			}
-			dir.AST = cg
-			dirs = append(dirs, &dir)
+		d, ok := ast.ParseDirective(c.Slash, text)
+		if !ok || (d.Tool != "encore" && d.Tool != "ap") {
 			continue
 		}
-		docLines = append(docLines, line)
+
+		// Mutate c.Text so that cg.Text() recognizes it as a directive and omits it.
+		c.Text = text
+
+		dir, ok := parseOne(errs, d.Name, d.ArgsPos+token.Pos(trim), d.Args)
+		if !ok {
+			return nil, "", false
+		}
+		dir.AST = cg
+		dir.start = d.Slash
+		dirs = append(dirs, &dir)
 	}
 
 	if len(dirs) == 0 {
@@ -200,7 +168,8 @@ func Parse(errs *perr.List, cg *ast.CommentGroup) (dir *Directive, doc string, o
 		errs.Add(err)
 		return nil, "", false
 	}
-	doc = strings.TrimSpace(strings.Join(docLines, "\n"))
+
+	doc = cg.Text()
 	return dirs[0], doc, true
 }
 
@@ -212,25 +181,18 @@ var (
 )
 
 // parseOne parses a single Directive from line.
+// pos is the position where line starts in the source.
 // It does not set Directive.AST.
-func parseOne(errs *perr.List, pos token.Pos, line string) (d Directive, ok bool) {
-	fields := fields(pos+7, line) // +7 for "encore:"
-	if len(fields) == 0 {
-		errs.Add(errMissingDirectiveName.AtGoPos(pos, pos+7+token.Pos(len([]byte(line)))))
-		return Directive{}, false
-	}
+func parseOne(errs *perr.List, name string, pos token.Pos, line string) (d Directive, ok bool) {
+	fields := fields(pos, line)
 
-	// seen tracks fields already seen, to detect duplicates.
+	d.Name = name
+	d.nameEnd = pos + token.Pos(len(name))
+	d.end = pos + token.Pos(len(line))
+
 	seen := make(map[string]Field, len(fields))
 
-	d.Name = fields[0].Value
-	d.start = pos
-	d.nameEnd = pos + 7 + token.Pos(len([]byte(d.Name)))
-	d.end = pos + +7 + token.Pos(len([]byte(line)))
-
-	for _, f := range fields[1:] {
-		// seenKey is the key to use for detecting duplicates.
-		// Default it to the field itself.
+	for _, f := range fields {
 		seenKey := f.Value
 
 		if strings.HasPrefix(f.Value, "tag:") {
