@@ -27,3 +27,5 @@ runtimes/supervisor-encore
 runtimes/supervisor-encore-linux-amd64
 
 encore-runtime.node-linux-amd64
+# Generated Protobuf files
+*.pb.go
