@@ -204,13 +204,67 @@ func getMethodType(rpc *meta.RPC) string {
 	return ts.String()
 }
 
+func (ts *typescript) writeConstant(ns string, c *schema.ConstantDecl) {
+	if c.Doc != "" {
+		scanner := bufio.NewScanner(strings.NewReader(c.Doc))
+		ts.WriteString("    /**\n")
+		for scanner.Scan() {
+			ts.WriteString("     * ")
+			ts.WriteString(scanner.Text())
+			ts.WriteByte('\n')
+		}
+		ts.WriteString("     */\n")
+	}
+
+	switch v := c.Value.(type) {
+	case *schema.ConstantDecl_StrValue:
+		fmt.Fprintf(ts, "    export const %s: string = %s;\n", c.Name, strconv.Quote(v.StrValue))
+	case *schema.ConstantDecl_IntValue:
+		fmt.Fprintf(ts, "    export const %s: number = %d;\n", c.Name, v.IntValue)
+	case *schema.ConstantDecl_BoolValue:
+		fmt.Fprintf(ts, "    export const %s: boolean = %t;\n", c.Name, v.BoolValue)
+	case *schema.ConstantDecl_FloatValue:
+		fmt.Fprintf(ts, "    export const %s: number = %f;\n", c.Name, v.FloatValue)
+	}
+}
+
+func (ts *typescript) writeEnum(ns string, e *schema.EnumDecl) {
+	if e.Doc != "" {
+		scanner := bufio.NewScanner(strings.NewReader(e.Doc))
+		ts.WriteString("    /**\n")
+		for scanner.Scan() {
+			ts.WriteString("     * ")
+			ts.WriteString(scanner.Text())
+			ts.WriteByte('\n')
+		}
+		ts.WriteString("     */\n")
+	}
+
+	fmt.Fprintf(ts, "    export enum %s {\n", e.Name)
+	for _, m := range e.Members {
+		switch val := m.Value.(type) {
+		case *schema.ConstantDecl_StrValue:
+			fmt.Fprintf(ts, "        %s = %s,\n", m.Name, strconv.Quote(val.StrValue))
+		case *schema.ConstantDecl_IntValue:
+			fmt.Fprintf(ts, "        %s = %d,\n", m.Name, val.IntValue)
+		case *schema.ConstantDecl_BoolValue:
+			fmt.Fprintf(ts, "        %s = %t,\n", m.Name, val.BoolValue)
+		case *schema.ConstantDecl_FloatValue:
+			fmt.Fprintf(ts, "        %s = %f,\n", m.Name, val.FloatValue)
+		}
+	}
+	ts.WriteString("    }\n")
+}
+
 func (ts *typescript) writeService(svc *meta.Service, p clientgentypes.ServiceSet, tags clientgentypes.TagSet) error {
 	// Determine if we have anything worth exposing.
 	// Either a public RPC or a named type.
 	isIncluded := hasPublicRPC(svc) && p.Has(svc.Name)
 
 	decls := ts.typs.Decls(svc.Name)
-	if !isIncluded && len(decls) == 0 {
+	constants := ts.typs.Constants(svc.Name)
+	enums := ts.typs.Enums(svc.Name)
+	if !isIncluded && len(decls) == 0 && len(constants) == 0 && len(enums) == 0 {
 		return nil
 	}
 
@@ -243,16 +297,8 @@ func (ts *typescript) writeService(svc *meta.Service, p clientgentypes.ServiceSe
 	ns := svc.Name
 	fmt.Fprintf(ts, "export namespace %s {\n", ts.typeName(ns))
 
-	sort.Slice(decls, func(i, j int) bool {
-		return decls[i].Name < decls[j].Name
-	})
 	if !ts.sharedTypes {
-		for i, d := range decls {
-			if i > 0 {
-				ts.WriteString("\n")
-			}
-			ts.writeDeclDef(ns, d)
-		}
+		ts.writeNamespaceMembers(ns)
 	}
 
 	if !isIncluded {
@@ -806,22 +852,64 @@ func (ts *typescript) nonReservedId(id string) string {
 
 func (ts *typescript) writeNamespace(ns string) {
 	decls := ts.typs.Decls(ns)
-	if len(decls) == 0 {
+	constants := ts.typs.Constants(ns)
+	enums := ts.typs.Enums(ns)
+
+	if len(decls) == 0 && len(constants) == 0 && len(enums) == 0 {
 		return
 	}
 
 	fmt.Fprintf(ts, "export namespace %s {\n", ts.typeName(ns))
-	sort.Slice(decls, func(i, j int) bool {
-		return decls[i].Name < decls[j].Name
+	ts.writeNamespaceMembers(ns)
+	ts.WriteString("}\n\n")
+}
+
+func (ts *typescript) writeNamespaceMembers(ns string) {
+	decls := ts.typs.Decls(ns)
+	constants := ts.typs.Constants(ns)
+	enums := ts.typs.Enums(ns)
+
+	declsAndConsts := make([]any, 0, len(decls)+len(constants)+len(enums))
+	for _, d := range decls {
+		declsAndConsts = append(declsAndConsts, d)
+	}
+	for _, c := range constants {
+		declsAndConsts = append(declsAndConsts, c)
+	}
+	for _, e := range enums {
+		declsAndConsts = append(declsAndConsts, e)
+	}
+
+	sort.Slice(declsAndConsts, func(i, j int) bool {
+		getName := func(v any) string {
+			switch val := v.(type) {
+			case *schema.Decl:
+				return val.Name
+			case *schema.ConstantDecl:
+				return val.Name
+			case *schema.EnumDecl:
+				return val.Name
+			default:
+				return ""
+			}
+		}
+		return getName(declsAndConsts[i]) < getName(declsAndConsts[j])
 	})
-	for i, d := range decls {
+
+	for i, val := range declsAndConsts {
 		if i > 0 {
 			ts.WriteString("\n")
 		}
 
-		ts.writeDeclDef(ns, d)
+		switch v := val.(type) {
+		case *schema.Decl:
+			ts.writeDeclDef(ns, v)
+		case *schema.ConstantDecl:
+			ts.writeConstant(ns, v)
+		case *schema.EnumDecl:
+			ts.writeEnum(ns, v)
+		}
 	}
-	ts.WriteString("}\n\n")
 }
 
 func (ts *typescript) writeDeclDef(ns string, decl *schema.Decl) {

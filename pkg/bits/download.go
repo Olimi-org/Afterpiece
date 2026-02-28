@@ -53,5 +53,5 @@ func Describe(ctx context.Context, dir string) (desc *app.Desc, err error) {
 
 	pp := parser.NewParser(pc)
 	res := pp.Parse()
-	return app.ValidateAndDescribe(pc, res), nil
+	return app.ValidateAndDescribe(pc, pp.SchemaParser(), res), nil
 }

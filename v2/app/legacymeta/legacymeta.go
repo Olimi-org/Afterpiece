@@ -18,6 +18,7 @@ import (
 	"encr.dev/v2/internals/schema"
 	"encr.dev/v2/parser/apis/api"
 	"encr.dev/v2/parser/apis/authhandler"
+	"encr.dev/v2/parser/apis/constant"
 	"encr.dev/v2/parser/apis/middleware"
 	"encr.dev/v2/parser/apis/servicestruct"
 	"encr.dev/v2/parser/infra/caches"
@@ -36,15 +37,19 @@ type builder struct {
 	app  *app.Desc
 	md   *meta.Data // metadata being generated
 
-	decls map[declKey]uint32
-	nodes *TraceNodes
+	decls          map[declKey]uint32
+	usedNamedTypes map[pkginfo.QualifiedName]bool // Track types used in exported schemas
+	exportedEnums  map[pkginfo.QualifiedName]bool // Track which enums have been exported
+	nodes          *TraceNodes
 }
 
 func Compute(errs *perr.List, appDesc *app.Desc) (*meta.Data, *TraceNodes) {
 	b := &builder{
-		errs:  errs,
-		app:   appDesc,
-		decls: make(map[declKey]uint32),
+		errs:           errs,
+		app:            appDesc,
+		decls:          make(map[declKey]uint32),
+		usedNamedTypes: make(map[pkginfo.QualifiedName]bool),
+		exportedEnums:  make(map[pkginfo.QualifiedName]bool),
 	}
 	b.nodes = newTraceNodes(b)
 
@@ -419,6 +424,12 @@ func (b *builder) Build() *meta.Data {
 
 			md.Metrics = append(md.Metrics, m)
 
+		case *constant.Enum:
+			// Handle explicitly exported enums (those with //encore:export)
+			qn := pkginfo.Q(paths.Pkg(r.PkgPath), r.Name)
+			b.addEnumToMeta(r)
+			b.exportedEnums[qn] = true
+
 		case *config.Load:
 			if svc, ok := b.app.ServiceForPath(r.File.Pkg.FSPath); ok {
 				if metaSvc, ok := svcByName[svc.Name]; ok {
@@ -544,6 +555,9 @@ func (b *builder) Build() *meta.Data {
 			Explicit:   nil,
 		})
 	}
+
+	b.populateConstants()
+	b.populateEnums()
 
 	return md
 }
