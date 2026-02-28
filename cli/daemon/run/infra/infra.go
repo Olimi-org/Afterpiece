@@ -18,6 +18,7 @@ import (
 	"encr.dev/cli/daemon/pubsub"
 	"encr.dev/cli/daemon/redis"
 	"encr.dev/cli/daemon/sqldb"
+	"encr.dev/internal/env"
 	"encr.dev/internal/optracker"
 	"encr.dev/pkg/environ"
 	meta "encr.dev/proto/afterpiece/parser/meta/v1"
@@ -45,30 +46,32 @@ const (
 // ResourceManager manages a set of infrastructure resources
 // to support the running Encore application.
 type ResourceManager struct {
-	app           *apps.Instance
-	dbProxyPort   int
-	sqlMgr        *sqldb.ClusterManager
-	objectsMgr    *objects.ClusterManager
-	publicBuckets *objects.PublicBucketServer
-	ns            *namespace.Namespace
-	environ       environ.Environ
-	log           zerolog.Logger
-	forTests      bool
+	app            *apps.Instance
+	dbProxyPort    int
+	sqlMgr         *sqldb.ClusterManager
+	objectsMgr     *objects.ClusterManager
+	publicBuckets  *objects.PublicBucketServer
+	ns             *namespace.Namespace
+	environ        environ.Environ
+	log            zerolog.Logger
+	forTests       bool
+	productionMode bool
 
 	mutex   sync.Mutex
 	servers map[Type]Resource
 }
 
-func NewResourceManager(app *apps.Instance, sqlMgr *sqldb.ClusterManager, objectsMgr *objects.ClusterManager, publicBuckets *objects.PublicBucketServer, ns *namespace.Namespace, environ environ.Environ, dbProxyPort int, forTests bool) *ResourceManager {
+func NewResourceManager(app *apps.Instance, sqlMgr *sqldb.ClusterManager, objectsMgr *objects.ClusterManager, publicBuckets *objects.PublicBucketServer, ns *namespace.Namespace, environ environ.Environ, dbProxyPort int, forTests bool, productionMode bool) *ResourceManager {
 	return &ResourceManager{
-		app:           app,
-		dbProxyPort:   dbProxyPort,
-		sqlMgr:        sqlMgr,
-		objectsMgr:    objectsMgr,
-		publicBuckets: publicBuckets,
-		ns:            ns,
-		environ:       environ,
-		forTests:      forTests,
+		app:            app,
+		dbProxyPort:    dbProxyPort,
+		sqlMgr:         sqlMgr,
+		objectsMgr:     objectsMgr,
+		publicBuckets:  publicBuckets,
+		ns:             ns,
+		environ:        environ,
+		forTests:       forTests,
+		productionMode: productionMode,
 
 		servers: make(map[Type]Resource),
 		log:     log.With().Str("app_id", app.PlatformOrLocalID()).Logger(),
@@ -107,7 +110,25 @@ func (rm *ResourceManager) StartRequiredServices(a *optracker.AsyncBuildJobs, md
 	}
 
 	if objects.IsUsed(md) && rm.GetObjects() == nil {
-		a.Go("Starting Object Storage server", true, 250*time.Millisecond, rm.StartObjects(md))
+		s3Config := env.GetS3Config(rm.environ.Get)
+		useS3 := rm.productionMode || s3Config.Endpoint != ""
+
+		if useS3 && s3Config.Endpoint == "" {
+			a.Go("Object Storage (Emulator Fallback: S3 config missing)", true, 10*time.Millisecond, func(ctx context.Context) error {
+				rm.log.Warn().Msg("S3 credentials/endpoint not found. Falling back to local emulator.")
+				return nil
+			})
+			useS3 = false
+		}
+
+		if !useS3 {
+			a.Go("Starting Object Storage (Local Emulator)", true, 250*time.Millisecond, rm.StartObjects(md))
+		} else {
+			a.Go("Configuring Object Storage (Custom S3)", true, 10*time.Millisecond, func(ctx context.Context) error {
+				rm.log.Warn().Msg("S3 bucket connection is not verified by Encore CLI.")
+				return nil
+			})
+		}
 	}
 }
 
@@ -464,6 +485,49 @@ func (rm *ResourceManager) RedisConfig(redis *meta.CacheCluster) (config.RedisSe
 
 // BucketProviderConfig returns the bucket provider configuration.
 func (rm *ResourceManager) BucketProviderConfig() (config.BucketProvider, string, error) {
+	s3Config := env.GetS3Config(rm.environ.Get)
+	useS3 := rm.productionMode || s3Config.Endpoint != ""
+	if useS3 && s3Config.Endpoint == "" {
+		useS3 = false
+	}
+
+	if useS3 {
+
+		var endpoint *string
+		if s3Config.Endpoint != "" {
+			endpoint = &s3Config.Endpoint
+		}
+
+		var accessKeyId *string
+		if s3Config.AccessKeyID != "" {
+			accessKeyId = &s3Config.AccessKeyID
+		}
+
+		var secretAccessKey *string
+		if s3Config.SecretAccessKey != "" {
+			secretAccessKey = &s3Config.SecretAccessKey
+		}
+
+		regionStr := s3Config.Region
+		if regionStr == "" {
+			regionStr = "us-east-1"
+		}
+
+		publicURL := ""
+		if endpoint != nil {
+			publicURL = *endpoint
+		}
+
+		return config.BucketProvider{
+			S3: &config.S3BucketProvider{
+				Region:          regionStr,
+				Endpoint:        endpoint,
+				AccessKeyID:     accessKeyId,
+				SecretAccessKey: secretAccessKey,
+			},
+		}, publicURL, nil
+	}
+
 	obj := rm.GetObjects()
 	if obj == nil {
 		return config.BucketProvider{}, "", errors.New("no object storage found")

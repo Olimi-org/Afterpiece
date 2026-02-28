@@ -50,6 +50,7 @@ var (
 		Desc:      "Whether to open the local development dashboard in the browser on startup",
 		TypeDesc:  "string",
 	}
+	prod bool // run with prod configs
 )
 
 func init() {
@@ -79,6 +80,7 @@ func init() {
 	runCmd.Flags().BoolVar(&color, "color", isTerm, "Whether to display colorized output")
 	runCmd.Flags().BoolVar(&noColor, "no-color", false, "Equivalent to --color=false")
 	runCmd.Flags().MarkHidden("no-color")
+	runCmd.Flags().BoolVar(&prod, "prod", false, "Use production infrastructure defaults (e.g. disable emulators)")
 	logLevel.AddFlag(runCmd)
 	debug.AddFlag(runCmd)
 	browser.AddFlag(runCmd)
@@ -124,16 +126,17 @@ func runApp(appRoot, wd string) {
 
 	daemon := setupDaemon(ctx)
 	stream, err := daemon.Run(ctx, &daemonpb.RunRequest{
-		AppRoot:    appRoot,
-		DebugMode:  debugMode,
-		Watch:      watch,
-		WorkingDir: wd,
-		ListenAddr: listenAddr,
-		Environ:    os.Environ(),
-		TraceFile:  root.TraceFile,
-		Namespace:  nonZeroPtr(nsName),
-		Browser:    browserMode,
-		LogLevel:   nonZeroPtr(logLevel.Value),
+		AppRoot:        appRoot,
+		DebugMode:      debugMode,
+		Watch:          watch,
+		WorkingDir:     wd,
+		ListenAddr:     listenAddr,
+		Environ:        os.Environ(),
+		TraceFile:      root.TraceFile,
+		Namespace:      nonZeroPtr(nsName),
+		Browser:        browserMode,
+		LogLevel:       nonZeroPtr(logLevel.Value),
+		ProductionMode: prod,
 	})
 	if err != nil {
 		fatal(err)

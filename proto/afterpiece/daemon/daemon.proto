@@ -119,6 +119,9 @@ message RunRequest {
   // Log level override.
   optional string log_level = 12;
 
+  // Use production infrastructure defaults.
+  bool production_mode = 13;
+
   enum BrowserMode {
     BROWSER_AUTO = 0;
     BROWSER_NEVER = 1;

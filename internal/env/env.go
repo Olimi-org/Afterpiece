@@ -6,10 +6,15 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 
 	"encr.dev/pkg/option"
 )
+
+func init() {
+	_ = godotenv.Load(".env")
+}
 
 // These can be overwritten using
 // `go build -ldflags "-X encr.dev/cli/internal/env.alternativeEncoreRuntimesPath=$HOME/src/github.com/encoredev/afterpiece/runtimes"`.
@@ -116,6 +121,25 @@ func EncoreObjectStorageListAddr() option.Option[string] {
 		return option.Some(p)
 	}
 	return option.None[string]()
+}
+
+type S3Config struct {
+	Endpoint        string
+	Region          string
+	AccessKeyID     string
+	SecretAccessKey string
+}
+
+func GetS3Config(lookup func(string) string) S3Config {
+	if lookup == nil {
+		lookup = os.Getenv
+	}
+	return S3Config{
+		Endpoint:        lookup("ENCORE_S3_ENDPOINT"),
+		Region:          lookup("ENCORE_S3_REGION"),
+		AccessKeyID:     lookup("ENCORE_S3_ACCESS_KEY_ID"),
+		SecretAccessKey: lookup("ENCORE_S3_SECRET_ACCESS_KEY"),
+	}
 }
 
 func encoreGoRoot() string {

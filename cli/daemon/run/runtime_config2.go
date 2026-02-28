@@ -440,9 +440,36 @@ func (g *RuntimeConfigGenerator) initialize() error {
 				return errors.Wrap(err, "failed to generate bucket provider config")
 			}
 
-			cluster := g.conf.Infra.BucketCluster(&runtimev1.BucketCluster{
+			var s3Provider *runtimev1.BucketCluster_S3_
+			if bktProviderConfig.S3 != nil {
+				var secretAccessKey *runtimev1.SecretData
+				if bktProviderConfig.S3.SecretAccessKey != nil {
+					secretAccessKey = &runtimev1.SecretData{
+						Source: &runtimev1.SecretData_Embedded{
+							Embedded: []byte(*bktProviderConfig.S3.SecretAccessKey),
+						},
+						Encoding: runtimev1.SecretData_ENCODING_NONE,
+					}
+				}
+
+				s3Provider = &runtimev1.BucketCluster_S3_{
+					S3: &runtimev1.BucketCluster_S3{
+						Endpoint:        bktProviderConfig.S3.Endpoint,
+						Region:          bktProviderConfig.S3.Region,
+						AccessKeyId:     bktProviderConfig.S3.AccessKeyID,
+						SecretAccessKey: secretAccessKey,
+					},
+				}
+			}
+
+			clusterData := &runtimev1.BucketCluster{
 				Rid: newRid(),
-				Provider: &runtimev1.BucketCluster_Gcs{
+			}
+
+			if s3Provider != nil {
+				clusterData.Provider = s3Provider
+			} else {
+				clusterData.Provider = &runtimev1.BucketCluster_Gcs{
 					Gcs: &runtimev1.BucketCluster_GCS{
 						Endpoint:  &bktProviderConfig.GCS.Endpoint,
 						Anonymous: true,
@@ -452,8 +479,10 @@ func (g *RuntimeConfigGenerator) initialize() error {
 							PrivateKey: reverseString(dummyPrivateKeyReversed),
 						},
 					},
-				},
-			})
+				}
+			}
+
+			cluster := g.conf.Infra.BucketCluster(clusterData)
 
 			for _, bkt := range g.md.Buckets {
 				bktRid := newRid()

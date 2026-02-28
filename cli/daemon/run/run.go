@@ -104,6 +104,9 @@ type StartParams struct {
 
 	// LogLevel overrides the default log level for the run.
 	LogLevel option.Option[string]
+
+	// ProductionMode determines whether to use production infrastructure defaults (e.g. skip emulators).
+	ProductionMode bool
 }
 
 // BrowserMode specifies how to open the browser when starting 'encore run'.
@@ -170,7 +173,7 @@ func (mgr *Manager) Start(ctx context.Context, params StartParams) (run *Run, er
 		ID:              GenID(),
 		App:             params.App,
 		NS:              params.NS,
-		ResourceManager: infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, params.Environ, mgr.DBProxyPort, false),
+		ResourceManager: infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, params.Environ, mgr.DBProxyPort, false, params.ProductionMode),
 		ListenAddr:      params.ListenAddr,
 		SvcProxy:        svcProxy,
 		log:             logger,
@@ -474,6 +477,7 @@ func (r *Run) buildAndStart(ctx context.Context, tracker *optracker.OpTracker, i
 		WorkingDir:     r.Params.WorkingDir,
 		IsReload:       isReload,
 		Experiments:    expSet,
+		ProductionMode: r.Params.ProductionMode,
 	})
 	if err != nil {
 		tracker.Fail(startOp, err)
@@ -523,6 +527,7 @@ type StartProcGroupParams struct {
 	WorkingDir     string
 	IsReload       bool
 	Experiments    *experiments.Set
+	ProductionMode bool
 }
 
 const gracefulShutdownTime = 10 * time.Second
