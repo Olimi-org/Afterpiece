@@ -37,3 +37,7 @@ protoc -I . --go_out=../runtimes/go/appruntime/infrasdk/metrics/prometheus --go_
 ./prompb/types.proto
 protoc -I . --go_out=../runtimes/go/appruntime/infrasdk/metrics/prometheus --go_opt=$GO_OPT \
 ./prompb/remote.proto
+
+# GCS emulator pagetoken
+protoc -I .. --go_out=.. --go_opt=$GO_OPT \
+../pkg/emulators/storage/gcsutil/gcspagetoken.proto
