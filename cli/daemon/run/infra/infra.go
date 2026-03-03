@@ -279,6 +279,7 @@ func (rm *ResourceManager) StartSQLCluster(a *optracker.AsyncBuildJobs, md *meta
 
 		rm.mutex.Lock()
 		rm.servers[SQLDB] = cluster
+		rm.databaseResolver.LocalCluster = cluster
 		rm.mutex.Unlock()
 
 		// Set up the database asynchronously since it can take a while.
@@ -328,7 +329,7 @@ func (rm *ResourceManager) UpdateConfig(cfg *config.Runtime, md *meta.Data, dbPr
 
 	if cluster := rm.GetSQLCluster(); cluster != nil {
 		srv := &config.SQLServer{
-			Host: "localhost:" + strconv.Itoa(dbProxyPort),
+			Host: "localhost:" + fmt.Sprintf("%d", dbProxyPort),
 		}
 		serverID := len(cfg.SQLServers)
 		cfg.SQLServers = append(cfg.SQLServers, srv)
