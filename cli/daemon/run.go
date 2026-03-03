@@ -137,19 +137,27 @@ func (s *Server) Run(req *daemonpb.RunRequest, stream daemonpb.Daemon_RunServer)
 		browser = run.BrowserModeFromConfig(userConfig)
 	}
 
+	appFile, err := app.AppFile()
+	if err != nil {
+		s.mu.Unlock()
+		_, _ = fmt.Fprintln(stderr, aurora.Sprintf(aurora.Red("failed to read app file: %v"), err))
+		sendExit(1)
+		return nil
+	}
+
 	runInstance, err := s.mgr.Start(ctx, run.StartParams{
-		App:            app,
-		NS:             ns,
-		WorkingDir:     req.WorkingDir,
-		Listener:       ln,
-		ListenAddr:     displayListenAddr,
-		Watch:          req.Watch,
-		Environ:        req.Environ,
-		OpsTracker:     ops,
-		Browser:        browser,
-		Debug:          run.DebugModeFromProto(req.DebugMode),
-		LogLevel:       option.FromPointer(req.LogLevel),
-		ProductionMode: req.ProductionMode,
+		App:          app,
+		NS:           ns,
+		WorkingDir:   req.WorkingDir,
+		Listener:     ln,
+		ListenAddr:   displayListenAddr,
+		Watch:        req.Watch,
+		Environ:      req.Environ,
+		OpsTracker:   ops,
+		Browser:      browser,
+		Debug:        run.DebugModeFromProto(req.DebugMode),
+		LogLevel:     option.FromPointer(req.LogLevel),
+		InfraConfigs: appFile.Infra,
 	})
 	if err != nil {
 		s.mu.Unlock()

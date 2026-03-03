@@ -58,10 +58,8 @@ type RuntimeConfigGenerator struct {
 
 	// The infra manager to use
 	infraManager interface {
-		SQLServerConfig() (config.SQLServer, error)
+		SQLConfig(db *meta.SQLDatabase) (config.SQLServer, config.SQLDatabase, error)
 		PubSubProviderConfig() (config.PubsubProvider, error)
-
-		SQLDatabaseConfig(db *meta.SQLDatabase) (config.SQLDatabase, error)
 		PubSubTopicConfig(topic *meta.PubSubTopic) (config.PubsubProvider, config.PubsubTopic, error)
 		PubSubSubscriptionConfig(topic *meta.PubSubTopic, sub *meta.PubSubTopic_Subscription) (config.PubsubSubscription, error)
 		RedisConfig(redis *meta.CacheCluster) (config.RedisServer, config.RedisDatabase, error)
@@ -277,29 +275,6 @@ func (g *RuntimeConfigGenerator) initialize() error {
 		}
 
 		if len(g.md.SqlDatabases) > 0 {
-			srvConfig, err := g.infraManager.SQLServerConfig()
-			if err != nil {
-				return errors.Wrap(err, "failed to generate SQL server config")
-			}
-
-			cluster := g.conf.Infra.SQLCluster(&runtimev1.SQLCluster{
-				Rid: newRid(),
-			})
-
-			var tlsConfig *runtimev1.TLSConfig
-			if srvConfig.ServerCACert != "" {
-				tlsConfig = &runtimev1.TLSConfig{
-					ServerCaCert: &srvConfig.ServerCACert,
-				}
-			}
-
-			cluster.SQLServer(&runtimev1.SQLServer{
-				Rid:       newRid(),
-				Kind:      runtimev1.ServerKind_SERVER_KIND_PRIMARY,
-				Host:      srvConfig.Host,
-				TlsConfig: tlsConfig,
-			})
-
 			for _, db := range g.md.SqlDatabases {
 				if externalDB, ok := g.DefinedSecrets["sqldb::"+db.Name]; ok {
 					var extCfg struct {
@@ -323,8 +298,7 @@ func (g *RuntimeConfigGenerator) initialize() error {
 							DisableCaValidation: true,
 						},
 					})
-					// Generate a role rid based on the cluster+username combination.
-					roleRid := fmt.Sprintf("role:%s:%s", cluster.Val.Rid, pCfg.User)
+					roleRid := generateRoleRID(cluster.Val.Rid, pCfg.User)
 					g.conf.Infra.SQLRole(&runtimev1.SQLRole{
 						Rid:           roleRid,
 						Username:      pCfg.User,
@@ -343,13 +317,30 @@ func (g *RuntimeConfigGenerator) initialize() error {
 						MaxConnections: int32(0),
 					})
 				} else {
-					dbConfig, err := g.infraManager.SQLDatabaseConfig(db)
+					srvConfig, dbConfig, err := g.infraManager.SQLConfig(db)
 					if err != nil {
-						return errors.Wrap(err, "failed to generate SQL database config")
+						return errors.Wrap(err, "failed to generate SQL config")
 					}
 
-					// Generate a role rid based on the cluster+username combination.
-					roleRid := fmt.Sprintf("role:%s:%s", cluster.Val.Rid, dbConfig.User)
+					cluster := g.conf.Infra.SQLCluster(&runtimev1.SQLCluster{
+						Rid: newRid(),
+					})
+
+					var tlsConfig *runtimev1.TLSConfig
+					if srvConfig.ServerCACert != "" {
+						tlsConfig = &runtimev1.TLSConfig{
+							ServerCaCert: &srvConfig.ServerCACert,
+						}
+					}
+
+					cluster.SQLServer(&runtimev1.SQLServer{
+						Rid:       newRid(),
+						Kind:      runtimev1.ServerKind_SERVER_KIND_PRIMARY,
+						Host:      srvConfig.Host,
+						TlsConfig: tlsConfig,
+					})
+
+					roleRid := generateRoleRID(cluster.Val.Rid, dbConfig.User)
 					g.conf.Infra.SQLRole(&runtimev1.SQLRole{
 						Rid:           roleRid,
 						Username:      dbConfig.User,
@@ -367,9 +358,7 @@ func (g *RuntimeConfigGenerator) initialize() error {
 						MinConnections: int32(dbConfig.MinConnections),
 						MaxConnections: int32(dbConfig.MaxConnections),
 					})
-
 				}
-
 			}
 		}
 
@@ -385,8 +374,7 @@ func (g *RuntimeConfigGenerator) initialize() error {
 					Servers: nil,
 				})
 
-				// Generate a role rid based on the cluster+username combination.
-				roleRid := fmt.Sprintf("role:%s:%s", cluster.Val.Rid, srvConfig.User)
+				roleRid := generateRoleRID(cluster.Val.Rid, srvConfig.User)
 				g.conf.Infra.RedisRoleFn(roleRid, func() *runtimev1.RedisRole {
 					r := &runtimev1.RedisRole{
 						Rid:           roleRid,
@@ -774,6 +762,12 @@ func (g *RuntimeConfigGenerator) ForTests(newRuntimeConf bool) (envs []string, e
 
 	return envs, nil
 }
+
+// generateRoleRID generates a role rid based on the cluster+username combination.
+func generateRoleRID(clusterRID, username string) string {
+	return fmt.Sprintf("role:%s:%s", clusterRID, username)
+}
+
 
 func ptrOrNil[T comparable](val T) *T {
 	var zero T

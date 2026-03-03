@@ -162,9 +162,13 @@ func (mgr *Manager) testSpec(ctx context.Context, bld builder.Impl, expSet *expe
 	if err := params.App.CacheMetadata(parse.Meta); err != nil {
 		return nil, errors.Wrap(err, "cache metadata")
 	}
+	appFile, err := params.App.AppFile()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read app file: %v", err)
+	}
 
-	rm := infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, nil, mgr.DBProxyPort, true, false)
-
+	rm := infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, nil, appFile.Infra, mgr.DBProxyPort, true)
+	defer rm.StopAll()
 	jobs := optracker.NewAsyncBuildJobs(ctx, params.App.PlatformOrLocalID(), nil)
 	rm.StartRequiredServices(jobs, parse.Meta)
 

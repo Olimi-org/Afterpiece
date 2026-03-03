@@ -20,6 +20,7 @@ import (
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/cueutil"
+	"encr.dev/pkg/environ"
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/promise"
@@ -61,7 +62,12 @@ func (mgr *Manager) ExecCommand(ctx context.Context, p ExecCommandParams) (err e
 		return err
 	}
 
-	rm := infra.NewResourceManager(p.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, p.NS, p.Environ, mgr.DBProxyPort, false, false)
+	appFile, err := p.App.AppFile()
+	if err != nil {
+		return err
+	}
+
+	rm := infra.NewResourceManager(p.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, p.NS, environ.Environ(p.Environ), appFile.Infra, mgr.DBProxyPort, false)
 	defer rm.StopAll()
 
 	tracker := p.OpTracker
