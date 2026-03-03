@@ -582,7 +582,7 @@ func TestProcClosedOnCtxCancel(t *testing.T) {
 
 	mgr := &Manager{}
 	ns := &namespace.Namespace{ID: "some-id", Name: "default"}
-	rm := infra.NewResourceManager(app, nil, nil, nil, ns, nil, 0, false)
+	rm := infra.NewResourceManager(app, nil, nil, nil, ns, nil, nil, 0, false)
 	run := &Run{
 		ID:              GenID(),
 		App:             app,
@@ -597,7 +597,6 @@ func TestProcClosedOnCtxCancel(t *testing.T) {
 	parse, build, _ := testBuild(c, appRoot, append(os.Environ(), "ENCORE_EXPERIMENT=v2"))
 	jobs := NewAsyncBuildJobs(ctx, app.PlatformOrLocalID(), nil)
 	run.ResourceManager.StartRequiredServices(jobs, parse.Meta)
-	defer run.Close()
 
 	c.Assert(jobs.Wait(), qt.IsNil)
 
@@ -611,4 +610,5 @@ func TestProcClosedOnCtxCancel(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	cancel()
 	<-p.Done()
+	run.Close()
 }

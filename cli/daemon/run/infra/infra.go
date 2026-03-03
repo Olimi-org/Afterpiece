@@ -35,7 +35,7 @@ const (
 const (
 	// these IDs are used in the Encore Cloud README file as an example
 	// on how to create a topic resource
-	encoreCloudExampleTopicID = "res_0o9ioqnrirflhhm3t720"
+	encoreCloudExampleTopicID        = "res_0o9ioqnrirflhhm3t720"
 	encoreCloudExampleSubscriptionID = "res_0o9ioqnrirflhhm3t730"
 )
 
@@ -429,8 +429,9 @@ func (rm *ResourceManager) SQLConfig(db *meta.SQLDatabase) (config.SQLServer, co
 }
 
 func (rm *ResourceManager) PubSubProviderConfig() (config.PubsubProvider, error) {
+	nsq := rm.GetPubSub()
 	rm.mutex.Lock()
-	if nsq := rm.GetPubSub(); nsq != nil && rm.pubsubResolver.LocalNSQ == nil {
+	if nsq != nil && rm.pubsubResolver.LocalNSQ == nil {
 		rm.pubsubResolver.LocalNSQ = &NSQProvider{Host: nsq.Addr()}
 	}
 	rm.mutex.Unlock()
