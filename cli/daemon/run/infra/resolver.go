@@ -385,19 +385,22 @@ func (r ObjectResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, r
 
 	switch provider.Provider {
 	case "s3":
-		if provider.S3 != nil {
-			if endpoint, ok := resolveValue(provider.S3.Endpoint); ok {
-				cfg.S3Endpoint = &endpoint
-			}
-			if region, ok := resolveValue(provider.S3.Region); ok {
-				cfg.S3Region = region
-			}
-			if accessKey, ok := resolveValue(provider.S3.AccessKeyID); ok {
-				cfg.S3AccessKeyID = &accessKey
-			}
-			if secretKey, ok := resolveValue(provider.S3.SecretAccessKey); ok {
-				cfg.S3SecretKey = &secretKey
-			}
+		if provider.S3 == nil {
+			return ObjectProviderConfig{}, false
+		}
+		if endpoint, ok := resolveValue(provider.S3.Endpoint); ok {
+			cfg.S3Endpoint = &endpoint
+		}
+		if region, ok := resolveValue(provider.S3.Region); ok {
+			cfg.S3Region = region
+		} else {
+			return ObjectProviderConfig{}, false
+		}
+		if accessKey, ok := resolveValue(provider.S3.AccessKeyID); ok {
+			cfg.S3AccessKeyID = &accessKey
+		}
+		if secretKey, ok := resolveValue(provider.S3.SecretAccessKey); ok {
+			cfg.S3SecretKey = &secretKey
 		}
 	case "gcs":
 		if provider.GCS != nil {

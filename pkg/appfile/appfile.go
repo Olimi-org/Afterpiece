@@ -100,12 +100,11 @@ type Value string
 // if the environment variable is not set.
 func (v Value) Resolve(getEnv func(string) string) (string, bool) {
 	s := string(v)
-	if strings.HasPrefix(s, "env:") {
-		envVar := strings.TrimPrefix(s, "env:")
+	if envVar, ok := strings.CutPrefix(s, "env:"); ok {
 		val := getEnv(envVar)
 		return val, val != ""
 	}
-	return s, true
+	return s, s != ""
 }
 
 // DatabaseInfra configures an external SQL database.

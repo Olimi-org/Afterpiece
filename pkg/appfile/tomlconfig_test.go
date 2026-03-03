@@ -168,7 +168,7 @@ func TestValueResolve(t *testing.T) {
 			value:    "",
 			getEnv:   func(string) string { return "" },
 			expected: "",
-			ok:       true,
+			ok:       false,
 		},
 	}
 
