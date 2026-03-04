@@ -1,6 +1,9 @@
 package infra
 
-import "encr.dev/pkg/appfile"
+import (
+	"encore.dev/appruntime/exported/config"
+	"encr.dev/pkg/appfile"
+)
 
 // PubSubMatcher defines the resolution matching interfaces for different Pub/Sub technologies.
 type PubSubMatcher interface {
@@ -9,6 +12,10 @@ type PubSubMatcher interface {
 	ResolveProvider(provider *appfile.PubSubInfra, resolveValue ValueResolver, cfg *PubSubProviderConfig) bool
 	ResolveTopic(topic *appfile.TopicInfra, provider *appfile.PubSubInfra, resolveValue ValueResolver, cfg *PubSubTopicConfig)
 	ResolveSubscription(sub *appfile.SubscriptionInfra, provider *appfile.PubSubInfra, resolveValue ValueResolver, cfg *PubSubSubscriptionConfig) bool
+
+	ToConfigProvider(cfg PubSubProviderConfig) config.PubsubProvider
+	ToConfigTopic(cfg PubSubTopicConfig) config.PubsubTopic
+	ToConfigSubscription(cfg PubSubSubscriptionConfig) config.PubsubSubscription
 }
 
 // ObjectMatcher defines the resolution matching interfaces for object storage technologies.
@@ -16,6 +23,8 @@ type ObjectMatcher interface {
 	Match(provider string) bool
 	NeedsLocal(provider *appfile.ObjectInfra, resolveValue ValueResolver) bool
 	ResolveProvider(provider *appfile.ObjectInfra, resolveValue ValueResolver, cfg *ObjectProviderConfig) bool
+
+	ToConfigProvider(cfg ObjectProviderConfig) config.BucketProvider
 }
 
 // pubSubMatchers contains the available provider matcher logic for PubSub architectures.
@@ -58,6 +67,15 @@ func (m *nsqPubSubMatcher) ResolveTopic(topic *appfile.TopicInfra, provider *app
 }
 func (m *nsqPubSubMatcher) ResolveSubscription(sub *appfile.SubscriptionInfra, provider *appfile.PubSubInfra, resolveValue ValueResolver, cfg *PubSubSubscriptionConfig) bool {
 	return true
+}
+func (m *nsqPubSubMatcher) ToConfigProvider(cfg PubSubProviderConfig) config.PubsubProvider {
+	return config.PubsubProvider{NSQ: &config.NSQProvider{Host: cfg.NSQHost}}
+}
+func (m *nsqPubSubMatcher) ToConfigTopic(cfg PubSubTopicConfig) config.PubsubTopic {
+	return config.PubsubTopic{ProviderID: cfg.ProviderID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, Subscriptions: make(map[string]*config.PubsubSubscription)}
+}
+func (m *nsqPubSubMatcher) ToConfigSubscription(cfg PubSubSubscriptionConfig) config.PubsubSubscription {
+	return config.PubsubSubscription{ID: cfg.ID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, PushOnly: cfg.PushOnly}
 }
 
 // gcpPubSubMatcher
@@ -117,6 +135,23 @@ func (m *gcpPubSubMatcher) ResolveSubscription(sub *appfile.SubscriptionInfra, p
 	}
 	return true
 }
+func (m *gcpPubSubMatcher) ToConfigProvider(cfg PubSubProviderConfig) config.PubsubProvider {
+	return config.PubsubProvider{GCP: &config.GCPPubsubProvider{}}
+}
+func (m *gcpPubSubMatcher) ToConfigTopic(cfg PubSubTopicConfig) config.PubsubTopic {
+	topic := config.PubsubTopic{ProviderID: cfg.ProviderID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, Subscriptions: make(map[string]*config.PubsubSubscription)}
+	if cfg.GCPProjectID != "" {
+		topic.GCP = &config.PubsubTopicGCPData{ProjectID: cfg.GCPProjectID}
+	}
+	return topic
+}
+func (m *gcpPubSubMatcher) ToConfigSubscription(cfg PubSubSubscriptionConfig) config.PubsubSubscription {
+	sub := config.PubsubSubscription{ID: cfg.ID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, PushOnly: cfg.PushOnly}
+	if cfg.GCPProjectID != "" || cfg.GCPPushSA != "" {
+		sub.GCP = &config.PubsubSubscriptionGCPData{ProjectID: cfg.GCPProjectID, PushServiceAccount: cfg.GCPPushSA}
+	}
+	return sub
+}
 
 // awsPubSubMatcher
 type awsPubSubMatcher struct{}
@@ -148,6 +183,15 @@ func (m *awsPubSubMatcher) ResolveSubscription(sub *appfile.SubscriptionInfra, p
 	}
 	return true
 }
+func (m *awsPubSubMatcher) ToConfigProvider(cfg PubSubProviderConfig) config.PubsubProvider {
+	return config.PubsubProvider{AWS: &config.AWSPubsubProvider{}}
+}
+func (m *awsPubSubMatcher) ToConfigTopic(cfg PubSubTopicConfig) config.PubsubTopic {
+	return config.PubsubTopic{ProviderID: cfg.ProviderID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, Subscriptions: make(map[string]*config.PubsubSubscription)}
+}
+func (m *awsPubSubMatcher) ToConfigSubscription(cfg PubSubSubscriptionConfig) config.PubsubSubscription {
+	return config.PubsubSubscription{ID: cfg.ID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, PushOnly: cfg.PushOnly}
+}
 
 // azurePubSubMatcher
 type azurePubSubMatcher struct{}
@@ -175,6 +219,15 @@ func (m *azurePubSubMatcher) ResolveTopic(topic *appfile.TopicInfra, provider *a
 }
 func (m *azurePubSubMatcher) ResolveSubscription(sub *appfile.SubscriptionInfra, provider *appfile.PubSubInfra, resolveValue ValueResolver, cfg *PubSubSubscriptionConfig) bool {
 	return true
+}
+func (m *azurePubSubMatcher) ToConfigProvider(cfg PubSubProviderConfig) config.PubsubProvider {
+	return config.PubsubProvider{Azure: &config.AzureServiceBusProvider{Namespace: cfg.AzureNS}}
+}
+func (m *azurePubSubMatcher) ToConfigTopic(cfg PubSubTopicConfig) config.PubsubTopic {
+	return config.PubsubTopic{ProviderID: cfg.ProviderID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, Subscriptions: make(map[string]*config.PubsubSubscription)}
+}
+func (m *azurePubSubMatcher) ToConfigSubscription(cfg PubSubSubscriptionConfig) config.PubsubSubscription {
+	return config.PubsubSubscription{ID: cfg.ID, EncoreName: cfg.EncoreName, ProviderName: cfg.ProviderName, PushOnly: cfg.PushOnly}
 }
 
 // s3ObjectMatcher
@@ -208,6 +261,9 @@ func (m *s3ObjectMatcher) ResolveProvider(p *appfile.ObjectInfra, res ValueResol
 	}
 	return true
 }
+func (m *s3ObjectMatcher) ToConfigProvider(cfg ObjectProviderConfig) config.BucketProvider {
+	return config.BucketProvider{S3: &config.S3BucketProvider{Region: cfg.S3Region, Endpoint: cfg.S3Endpoint, AccessKeyID: cfg.S3AccessKeyID, SecretAccessKey: cfg.S3SecretKey}}
+}
 
 // gcsObjectMatcher
 type gcsObjectMatcher struct{}
@@ -223,4 +279,7 @@ func (m *gcsObjectMatcher) ResolveProvider(p *appfile.ObjectInfra, res ValueReso
 		}
 	}
 	return true
+}
+func (m *gcsObjectMatcher) ToConfigProvider(cfg ObjectProviderConfig) config.BucketProvider {
+	return config.BucketProvider{GCS: &config.GCSBucketProvider{Endpoint: cfg.GCSEndpoint}}
 }
