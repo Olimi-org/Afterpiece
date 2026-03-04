@@ -225,12 +225,35 @@ func (g *RuntimeConfigGenerator) initialize() error {
 				return errors.Wrap(err, "failed to generate pubsub provider config")
 			}
 
-			cluster := g.conf.Infra.PubSubCluster(&runtimev1.PubSubCluster{
+			clusterData := &runtimev1.PubSubCluster{
 				Rid: newRid(),
-				Provider: &runtimev1.PubSubCluster_Nsq{
+			}
+
+			if pubsubConfig.NSQ != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Nsq{
 					Nsq: &runtimev1.PubSubCluster_NSQ{Hosts: []string{pubsubConfig.NSQ.Host}},
-				},
-			})
+				}
+			} else if pubsubConfig.GCP != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Gcp{
+					Gcp: &runtimev1.PubSubCluster_GCPPubSub{},
+				}
+			} else if pubsubConfig.AWS != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Aws{
+					Aws: &runtimev1.PubSubCluster_AWSSqsSns{},
+				}
+			} else if pubsubConfig.Azure != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Azure{
+					Azure: &runtimev1.PubSubCluster_AzureServiceBus{Namespace: pubsubConfig.Azure.Namespace},
+				}
+			} else if pubsubConfig.EncoreCloud != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Encore{
+					Encore: &runtimev1.PubSubCluster_EncoreCloud{},
+				}
+			} else {
+				return errors.New("invalid pubsub provider config: no provider set")
+			}
+
+			cluster := g.conf.Infra.PubSubCluster(clusterData)
 
 			for _, topic := range g.md.PubsubTopics {
 				topicRid := newRid()
@@ -448,6 +471,10 @@ func (g *RuntimeConfigGenerator) initialize() error {
 						SecretAccessKey: secretAccessKey,
 					},
 				}
+			}
+
+			if (bktProviderConfig.S3 == nil) == (bktProviderConfig.GCS == nil) {
+				return errors.New("invalid bucket provider config: set exactly one of S3 or GCS")
 			}
 
 			clusterData := &runtimev1.BucketCluster{
@@ -767,7 +794,6 @@ func (g *RuntimeConfigGenerator) ForTests(newRuntimeConf bool) (envs []string, e
 func generateRoleRID(clusterRID, username string) string {
 	return fmt.Sprintf("role:%s:%s", clusterRID, username)
 }
-
 
 func ptrOrNil[T comparable](val T) *T {
 	var zero T

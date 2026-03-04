@@ -183,3 +183,46 @@ func TestPubSubResolver(t *testing.T) {
 		t.Errorf("expected subscription emailer-sub with push config, got %+v", subCfg)
 	}
 }
+
+func TestResolverMissingConfigs(t *testing.T) {
+	dummyInfra := &appfile.Infra{
+		PubSub: []appfile.PubSubInfra{
+			{Provider: "nsq"}, // Missing NSQ Config
+			{
+				Provider: "gcp",
+				GCP:      &appfile.GCPPubSubInfra{ProjectID: appfile.Value("env:GCP_MISSING")},
+			},
+		},
+		Objects: []appfile.ObjectInfra{
+			{Provider: "s3"}, // Missing S3 Block
+			{
+				Provider: "s3",
+				S3:       &appfile.S3Infra{Region: appfile.Value("env:S3_MISSING")},
+			},
+		},
+	}
+
+	pubsubResolver := PubSubResolver{}
+	objResolver := ObjectResolver{}
+	emptyEnvs := map[string]string{}
+
+	// Expect PubSub: NSQ nil fails
+	if cfg, ok := pubsubResolver.ResolveProvider(0, dummyInfra, mockRealResolver(emptyEnvs)); ok {
+		t.Errorf("Expected NSQ missing config to fail, got %v", cfg)
+	}
+
+	// Expect PubSub: GCP unresolvable project fails
+	if cfg, ok := pubsubResolver.ResolveProvider(1, dummyInfra, mockRealResolver(emptyEnvs)); ok {
+		t.Errorf("Expected GCP empty string to fail, got %v", cfg)
+	}
+
+	// Expect S3: S3 config nil fails
+	if cfg, ok := objResolver.ResolveProvider(0, dummyInfra, mockRealResolver(emptyEnvs)); ok {
+		t.Errorf("Expected S3 missing config to fail, got %v", cfg)
+	}
+
+	// Expect S3: S3 region unresolvable fails
+	if cfg, ok := objResolver.ResolveProvider(1, dummyInfra, mockRealResolver(emptyEnvs)); ok {
+		t.Errorf("Expected S3 empty string region to fail, got %v", cfg)
+	}
+}

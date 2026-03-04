@@ -167,7 +167,7 @@ func (r CacheResolver) Resolve(name string, infra *appfile.Infra, resolveValue V
 	}
 
 	u, err := url.Parse(rawURL)
-	if err != nil {
+	if err != nil || u.Host == "" {
 		return CacheConfig{}, false
 	}
 
@@ -220,37 +220,41 @@ func (r PubSubResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, r
 
 	switch provider.Provider {
 	case "nsq":
-		if provider.NSQ != nil {
-			hosts, ok := resolveValue(provider.NSQ.Hosts)
-			if !ok {
-				return PubSubProviderConfig{}, false
-			}
-			cfg.NSQHost = hosts
+		if provider.NSQ == nil {
+			return PubSubProviderConfig{}, false
 		}
+		hosts, ok := resolveValue(provider.NSQ.Hosts)
+		if !ok || hosts == "" {
+			return PubSubProviderConfig{}, false
+		}
+		cfg.NSQHost = hosts
 	case "gcp":
-		if provider.GCP != nil {
-			projectID, ok := resolveValue(provider.GCP.ProjectID)
-			if !ok {
-				return PubSubProviderConfig{}, false
-			}
-			cfg.GCPProject = projectID
+		if provider.GCP == nil {
+			return PubSubProviderConfig{}, false
 		}
+		projectID, ok := resolveValue(provider.GCP.ProjectID)
+		if !ok || projectID == "" {
+			return PubSubProviderConfig{}, false
+		}
+		cfg.GCPProject = projectID
 	case "aws":
-		if provider.AWS != nil {
-			region, ok := resolveValue(provider.AWS.Region)
-			if !ok {
-				return PubSubProviderConfig{}, false
-			}
-			cfg.AWSRegion = region
+		if provider.AWS == nil {
+			return PubSubProviderConfig{}, false
 		}
+		region, ok := resolveValue(provider.AWS.Region)
+		if !ok || region == "" {
+			return PubSubProviderConfig{}, false
+		}
+		cfg.AWSRegion = region
 	case "azure":
-		if provider.Azure != nil {
-			ns, ok := resolveValue(provider.Azure.Namespace)
-			if !ok {
-				return PubSubProviderConfig{}, false
-			}
-			cfg.AzureNS = ns
+		if provider.Azure == nil {
+			return PubSubProviderConfig{}, false
 		}
+		ns, ok := resolveValue(provider.Azure.Namespace)
+		if !ok || ns == "" {
+			return PubSubProviderConfig{}, false
+		}
+		cfg.AzureNS = ns
 	default:
 		return PubSubProviderConfig{}, false
 	}
