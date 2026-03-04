@@ -211,55 +211,23 @@ type NSQProvider struct {
 }
 
 func (r PubSubResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, resolveValue ValueResolver) (PubSubProviderConfig, bool) {
-	if infra == nil || providerIdx >= len(infra.PubSub) {
+	if infra == nil || providerIdx < 0 || providerIdx >= len(infra.PubSub) {
 		return PubSubProviderConfig{}, false
 	}
 
 	provider := infra.PubSub[providerIdx]
 	cfg := PubSubProviderConfig{Provider: provider.Provider}
 
-	switch provider.Provider {
-	case "nsq":
-		if provider.NSQ == nil {
-			return PubSubProviderConfig{}, false
+	for _, matcher := range pubSubMatchers {
+		if matcher.Match(provider.Provider) {
+			if ok := matcher.ResolveProvider(&provider, resolveValue, &cfg); !ok {
+				return PubSubProviderConfig{}, false
+			}
+			return cfg, true
 		}
-		hosts, ok := resolveValue(provider.NSQ.Hosts)
-		if !ok || hosts == "" {
-			return PubSubProviderConfig{}, false
-		}
-		cfg.NSQHost = hosts
-	case "gcp":
-		if provider.GCP == nil {
-			return PubSubProviderConfig{}, false
-		}
-		projectID, ok := resolveValue(provider.GCP.ProjectID)
-		if !ok || projectID == "" {
-			return PubSubProviderConfig{}, false
-		}
-		cfg.GCPProject = projectID
-	case "aws":
-		if provider.AWS == nil {
-			return PubSubProviderConfig{}, false
-		}
-		region, ok := resolveValue(provider.AWS.Region)
-		if !ok || region == "" {
-			return PubSubProviderConfig{}, false
-		}
-		cfg.AWSRegion = region
-	case "azure":
-		if provider.Azure == nil {
-			return PubSubProviderConfig{}, false
-		}
-		ns, ok := resolveValue(provider.Azure.Namespace)
-		if !ok || ns == "" {
-			return PubSubProviderConfig{}, false
-		}
-		cfg.AzureNS = ns
-	default:
-		return PubSubProviderConfig{}, false
 	}
 
-	return cfg, true
+	return PubSubProviderConfig{}, false
 }
 
 func (r PubSubResolver) ResolveTopic(topicName string, infra *appfile.Infra, resolveValue ValueResolver) (PubSubTopicConfig, bool) {
@@ -275,15 +243,10 @@ func (r PubSubResolver) ResolveTopic(topicName string, infra *appfile.Infra, res
 				ProviderName: topic.Name,
 			}
 
-			if provider.Provider == "gcp" {
-				if topic.ProjectID != "" {
-					if pid, ok := resolveValue(topic.ProjectID); ok {
-						cfg.GCPProjectID = pid
-					}
-				} else if provider.GCP != nil {
-					if pid, ok := resolveValue(provider.GCP.ProjectID); ok {
-						cfg.GCPProjectID = pid
-					}
+			for _, matcher := range pubSubMatchers {
+				if matcher.Match(provider.Provider) {
+					matcher.ResolveTopic(&topic, &provider, resolveValue, &cfg)
+					break
 				}
 			}
 
@@ -314,32 +277,12 @@ func (r PubSubResolver) ResolveSubscription(topicName, subName string, infra *ap
 				cfg.ProviderName = name
 				cfg.ID = name
 
-				switch provider.Provider {
-				case "gcp":
-					if sub.ProjectID != "" {
-						if pid, ok := resolveValue(sub.ProjectID); ok {
-							cfg.GCPProjectID = pid
+				for _, matcher := range pubSubMatchers {
+					if matcher.Match(provider.Provider) {
+						if ok := matcher.ResolveSubscription(&sub, &provider, resolveValue, &cfg); !ok {
+							return PubSubSubscriptionConfig{}, false
 						}
-					} else if provider.GCP != nil {
-						if pid, ok := resolveValue(provider.GCP.ProjectID); ok {
-							cfg.GCPProjectID = pid
-						}
-					}
-					if sub.PushConfig != nil {
-						cfg.PushOnly = true
-						if sa, ok := resolveValue(sub.PushConfig.ServiceAccount); ok {
-							cfg.GCPPushSA = sa
-						}
-						if aud, ok := resolveValue(sub.PushConfig.JWTAudience); ok {
-							cfg.GCPPushAudience = aud
-						}
-						if id, ok := resolveValue(sub.PushConfig.ID); ok {
-							cfg.ID = id
-						}
-					}
-				case "aws":
-					if subURL, ok := resolveValue(sub.URL); ok {
-						cfg.ProviderName = subURL
+						break
 					}
 				}
 
@@ -380,43 +323,23 @@ type ObjectResolver struct {
 }
 
 func (r ObjectResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, resolveValue ValueResolver) (ObjectProviderConfig, bool) {
-	if infra == nil || providerIdx >= len(infra.Objects) {
+	if infra == nil || providerIdx < 0 || providerIdx >= len(infra.Objects) {
 		return ObjectProviderConfig{}, false
 	}
 
 	provider := infra.Objects[providerIdx]
 	cfg := ObjectProviderConfig{Provider: provider.Provider}
 
-	switch provider.Provider {
-	case "s3":
-		if provider.S3 == nil {
-			return ObjectProviderConfig{}, false
-		}
-		if endpoint, ok := resolveValue(provider.S3.Endpoint); ok {
-			cfg.S3Endpoint = &endpoint
-		}
-		if region, ok := resolveValue(provider.S3.Region); ok {
-			cfg.S3Region = region
-		} else {
-			return ObjectProviderConfig{}, false
-		}
-		if accessKey, ok := resolveValue(provider.S3.AccessKeyID); ok {
-			cfg.S3AccessKeyID = &accessKey
-		}
-		if secretKey, ok := resolveValue(provider.S3.SecretAccessKey); ok {
-			cfg.S3SecretKey = &secretKey
-		}
-	case "gcs":
-		if provider.GCS != nil {
-			if endpoint, ok := resolveValue(provider.GCS.Endpoint); ok {
-				cfg.GCSEndpoint = endpoint
+	for _, matcher := range objectMatchers {
+		if matcher.Match(provider.Provider) {
+			if ok := matcher.ResolveProvider(&provider, resolveValue, &cfg); !ok {
+				return ObjectProviderConfig{}, false
 			}
+			return cfg, true
 		}
-	default:
-		return ObjectProviderConfig{}, false
 	}
 
-	return cfg, true
+	return ObjectProviderConfig{}, false
 }
 
 func (r ObjectResolver) ResolveBucket(bucketName string, infra *appfile.Infra, resolveValue ValueResolver) (BucketConfig, bool) {
@@ -525,36 +448,17 @@ func (c NeedsLocalCheck) NeedsLocalPubSub() bool {
 	}
 
 	for _, provider := range c.Infra.PubSub {
-		switch provider.Provider {
-		case "nsq":
-			if provider.NSQ == nil {
-				return true
+		matched := false
+		for _, matcher := range pubSubMatchers {
+			if matcher.Match(provider.Provider) {
+				matched = true
+				if matcher.NeedsLocal(&provider, c.ResolveValue) {
+					return true
+				}
+				break
 			}
-			if _, ok := c.ResolveValue(provider.NSQ.Hosts); !ok {
-				return true
-			}
-		case "gcp":
-			if provider.GCP == nil {
-				return true
-			}
-			if _, ok := c.ResolveValue(provider.GCP.ProjectID); !ok {
-				return true
-			}
-		case "aws":
-			if provider.AWS == nil {
-				return true
-			}
-			if _, ok := c.ResolveValue(provider.AWS.Region); !ok {
-				return true
-			}
-		case "azure":
-			if provider.Azure == nil {
-				return true
-			}
-			if _, ok := c.ResolveValue(provider.Azure.Namespace); !ok {
-				return true
-			}
-		default:
+		}
+		if !matched {
 			return true
 		}
 	}
@@ -568,17 +472,17 @@ func (c NeedsLocalCheck) NeedsLocalObjects() bool {
 	}
 
 	for _, provider := range c.Infra.Objects {
-		switch provider.Provider {
-		case "s3":
-			if provider.S3 == nil {
-				return true
+		matched := false
+		for _, matcher := range objectMatchers {
+			if matcher.Match(provider.Provider) {
+				matched = true
+				if matcher.NeedsLocal(&provider, c.ResolveValue) {
+					return true
+				}
+				break
 			}
-			if _, ok := c.ResolveValue(provider.S3.Region); !ok {
-				return true
-			}
-		case "gcs":
-			// GCS can work without explicit config
-		default:
+		}
+		if !matched {
 			return true
 		}
 	}
