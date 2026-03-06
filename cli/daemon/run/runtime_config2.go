@@ -58,10 +58,8 @@ type RuntimeConfigGenerator struct {
 
 	// The infra manager to use
 	infraManager interface {
-		SQLServerConfig() (config.SQLServer, error)
+		SQLConfig(db *meta.SQLDatabase) (config.SQLServer, config.SQLDatabase, error)
 		PubSubProviderConfig() (config.PubsubProvider, error)
-
-		SQLDatabaseConfig(db *meta.SQLDatabase) (config.SQLDatabase, error)
 		PubSubTopicConfig(topic *meta.PubSubTopic) (config.PubsubProvider, config.PubsubTopic, error)
 		PubSubSubscriptionConfig(topic *meta.PubSubTopic, sub *meta.PubSubTopic_Subscription) (config.PubsubSubscription, error)
 		RedisConfig(redis *meta.CacheCluster) (config.RedisServer, config.RedisDatabase, error)
@@ -227,12 +225,35 @@ func (g *RuntimeConfigGenerator) initialize() error {
 				return errors.Wrap(err, "failed to generate pubsub provider config")
 			}
 
-			cluster := g.conf.Infra.PubSubCluster(&runtimev1.PubSubCluster{
+			clusterData := &runtimev1.PubSubCluster{
 				Rid: newRid(),
-				Provider: &runtimev1.PubSubCluster_Nsq{
+			}
+
+			if pubsubConfig.NSQ != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Nsq{
 					Nsq: &runtimev1.PubSubCluster_NSQ{Hosts: []string{pubsubConfig.NSQ.Host}},
-				},
-			})
+				}
+			} else if pubsubConfig.GCP != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Gcp{
+					Gcp: &runtimev1.PubSubCluster_GCPPubSub{},
+				}
+			} else if pubsubConfig.AWS != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Aws{
+					Aws: &runtimev1.PubSubCluster_AWSSqsSns{},
+				}
+			} else if pubsubConfig.Azure != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Azure{
+					Azure: &runtimev1.PubSubCluster_AzureServiceBus{Namespace: pubsubConfig.Azure.Namespace},
+				}
+			} else if pubsubConfig.EncoreCloud != nil {
+				clusterData.Provider = &runtimev1.PubSubCluster_Encore{
+					Encore: &runtimev1.PubSubCluster_EncoreCloud{},
+				}
+			} else {
+				return errors.New("invalid pubsub provider config: no provider set")
+			}
+
+			cluster := g.conf.Infra.PubSubCluster(clusterData)
 
 			for _, topic := range g.md.PubsubTopics {
 				topicRid := newRid()
@@ -277,29 +298,6 @@ func (g *RuntimeConfigGenerator) initialize() error {
 		}
 
 		if len(g.md.SqlDatabases) > 0 {
-			srvConfig, err := g.infraManager.SQLServerConfig()
-			if err != nil {
-				return errors.Wrap(err, "failed to generate SQL server config")
-			}
-
-			cluster := g.conf.Infra.SQLCluster(&runtimev1.SQLCluster{
-				Rid: newRid(),
-			})
-
-			var tlsConfig *runtimev1.TLSConfig
-			if srvConfig.ServerCACert != "" {
-				tlsConfig = &runtimev1.TLSConfig{
-					ServerCaCert: &srvConfig.ServerCACert,
-				}
-			}
-
-			cluster.SQLServer(&runtimev1.SQLServer{
-				Rid:       newRid(),
-				Kind:      runtimev1.ServerKind_SERVER_KIND_PRIMARY,
-				Host:      srvConfig.Host,
-				TlsConfig: tlsConfig,
-			})
-
 			for _, db := range g.md.SqlDatabases {
 				if externalDB, ok := g.DefinedSecrets["sqldb::"+db.Name]; ok {
 					var extCfg struct {
@@ -323,8 +321,7 @@ func (g *RuntimeConfigGenerator) initialize() error {
 							DisableCaValidation: true,
 						},
 					})
-					// Generate a role rid based on the cluster+username combination.
-					roleRid := fmt.Sprintf("role:%s:%s", cluster.Val.Rid, pCfg.User)
+					roleRid := generateRoleRID(cluster.Val.Rid, pCfg.User)
 					g.conf.Infra.SQLRole(&runtimev1.SQLRole{
 						Rid:           roleRid,
 						Username:      pCfg.User,
@@ -343,13 +340,30 @@ func (g *RuntimeConfigGenerator) initialize() error {
 						MaxConnections: int32(0),
 					})
 				} else {
-					dbConfig, err := g.infraManager.SQLDatabaseConfig(db)
+					srvConfig, dbConfig, err := g.infraManager.SQLConfig(db)
 					if err != nil {
-						return errors.Wrap(err, "failed to generate SQL database config")
+						return errors.Wrap(err, "failed to generate SQL config")
 					}
 
-					// Generate a role rid based on the cluster+username combination.
-					roleRid := fmt.Sprintf("role:%s:%s", cluster.Val.Rid, dbConfig.User)
+					cluster := g.conf.Infra.SQLCluster(&runtimev1.SQLCluster{
+						Rid: newRid(),
+					})
+
+					var tlsConfig *runtimev1.TLSConfig
+					if srvConfig.ServerCACert != "" {
+						tlsConfig = &runtimev1.TLSConfig{
+							ServerCaCert: &srvConfig.ServerCACert,
+						}
+					}
+
+					cluster.SQLServer(&runtimev1.SQLServer{
+						Rid:       newRid(),
+						Kind:      runtimev1.ServerKind_SERVER_KIND_PRIMARY,
+						Host:      srvConfig.Host,
+						TlsConfig: tlsConfig,
+					})
+
+					roleRid := generateRoleRID(cluster.Val.Rid, dbConfig.User)
 					g.conf.Infra.SQLRole(&runtimev1.SQLRole{
 						Rid:           roleRid,
 						Username:      dbConfig.User,
@@ -367,9 +381,7 @@ func (g *RuntimeConfigGenerator) initialize() error {
 						MinConnections: int32(dbConfig.MinConnections),
 						MaxConnections: int32(dbConfig.MaxConnections),
 					})
-
 				}
-
 			}
 		}
 
@@ -385,8 +397,7 @@ func (g *RuntimeConfigGenerator) initialize() error {
 					Servers: nil,
 				})
 
-				// Generate a role rid based on the cluster+username combination.
-				roleRid := fmt.Sprintf("role:%s:%s", cluster.Val.Rid, srvConfig.User)
+				roleRid := generateRoleRID(cluster.Val.Rid, srvConfig.User)
 				g.conf.Infra.RedisRoleFn(roleRid, func() *runtimev1.RedisRole {
 					r := &runtimev1.RedisRole{
 						Rid:           roleRid,
@@ -440,9 +451,40 @@ func (g *RuntimeConfigGenerator) initialize() error {
 				return errors.Wrap(err, "failed to generate bucket provider config")
 			}
 
-			cluster := g.conf.Infra.BucketCluster(&runtimev1.BucketCluster{
+			var s3Provider *runtimev1.BucketCluster_S3_
+			if bktProviderConfig.S3 != nil {
+				var secretAccessKey *runtimev1.SecretData
+				if bktProviderConfig.S3.SecretAccessKey != nil {
+					secretAccessKey = &runtimev1.SecretData{
+						Source: &runtimev1.SecretData_Embedded{
+							Embedded: []byte(*bktProviderConfig.S3.SecretAccessKey),
+						},
+						Encoding: runtimev1.SecretData_ENCODING_NONE,
+					}
+				}
+
+				s3Provider = &runtimev1.BucketCluster_S3_{
+					S3: &runtimev1.BucketCluster_S3{
+						Endpoint:        bktProviderConfig.S3.Endpoint,
+						Region:          bktProviderConfig.S3.Region,
+						AccessKeyId:     bktProviderConfig.S3.AccessKeyID,
+						SecretAccessKey: secretAccessKey,
+					},
+				}
+			}
+
+			if (bktProviderConfig.S3 == nil) == (bktProviderConfig.GCS == nil) {
+				return errors.New("invalid bucket provider config: set exactly one of S3 or GCS")
+			}
+
+			clusterData := &runtimev1.BucketCluster{
 				Rid: newRid(),
-				Provider: &runtimev1.BucketCluster_Gcs{
+			}
+
+			if s3Provider != nil {
+				clusterData.Provider = s3Provider
+			} else {
+				clusterData.Provider = &runtimev1.BucketCluster_Gcs{
 					Gcs: &runtimev1.BucketCluster_GCS{
 						Endpoint:  &bktProviderConfig.GCS.Endpoint,
 						Anonymous: true,
@@ -452,8 +494,10 @@ func (g *RuntimeConfigGenerator) initialize() error {
 							PrivateKey: reverseString(dummyPrivateKeyReversed),
 						},
 					},
-				},
-			})
+				}
+			}
+
+			cluster := g.conf.Infra.BucketCluster(clusterData)
 
 			for _, bkt := range g.md.Buckets {
 				bktRid := newRid()
@@ -744,6 +788,11 @@ func (g *RuntimeConfigGenerator) ForTests(newRuntimeConf bool) (envs []string, e
 	}
 
 	return envs, nil
+}
+
+// generateRoleRID generates a role rid based on the cluster+username combination.
+func generateRoleRID(clusterRID, username string) string {
+	return fmt.Sprintf("role:%s:%s", clusterRID, username)
 }
 
 func ptrOrNil[T comparable](val T) *T {

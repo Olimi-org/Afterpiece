@@ -3,7 +3,6 @@ package infra
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"encore.dev/appruntime/exported/config"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/cli/daemon/namespace"
 	"encr.dev/cli/daemon/objects"
@@ -33,12 +33,9 @@ const (
 )
 
 const (
-	// this ID is used in the Encore Cloud README file as an example
+	// these IDs are used in the Encore Cloud README file as an example
 	// on how to create a topic resource
-	encoreCloudExampleTopicID = "res_0o9ioqnrirflhhm3t720"
-
-	// this ID is used in the Encore Cloud README file as a example
-	// on how to create a subscription on the above topic
+	encoreCloudExampleTopicID        = "res_0o9ioqnrirflhhm3t720"
 	encoreCloudExampleSubscriptionID = "res_0o9ioqnrirflhhm3t730"
 )
 
@@ -57,10 +54,18 @@ type ResourceManager struct {
 
 	mutex   sync.Mutex
 	servers map[Type]Resource
+
+	infraConfigs *configinfra.InfraConfig
+
+	// Cached resolvers
+	databaseResolver DatabaseResolver
+	cacheResolver    CacheResolver
+	pubsubResolver   PubSubResolver
+	objectResolver   ObjectResolver
 }
 
-func NewResourceManager(app *apps.Instance, sqlMgr *sqldb.ClusterManager, objectsMgr *objects.ClusterManager, publicBuckets *objects.PublicBucketServer, ns *namespace.Namespace, environ environ.Environ, dbProxyPort int, forTests bool) *ResourceManager {
-	return &ResourceManager{
+func NewResourceManager(app *apps.Instance, sqlMgr *sqldb.ClusterManager, objectsMgr *objects.ClusterManager, publicBuckets *objects.PublicBucketServer, ns *namespace.Namespace, environ environ.Environ, infraConfigs *configinfra.InfraConfig, dbProxyPort int, forTests bool) *ResourceManager {
+	rm := &ResourceManager{
 		app:           app,
 		dbProxyPort:   dbProxyPort,
 		sqlMgr:        sqlMgr,
@@ -69,10 +74,20 @@ func NewResourceManager(app *apps.Instance, sqlMgr *sqldb.ClusterManager, object
 		ns:            ns,
 		environ:       environ,
 		forTests:      forTests,
+		infraConfigs:  infraConfigs,
 
 		servers: make(map[Type]Resource),
 		log:     log.With().Str("app_id", app.PlatformOrLocalID()).Logger(),
+
+		// Initialize cached resolvers
+		databaseResolver: DatabaseResolver{
+			LocalProxyPort: dbProxyPort,
+		},
+		cacheResolver:  CacheResolver{},
+		pubsubResolver: PubSubResolver{},
+		objectResolver: ObjectResolver{},
 	}
+	return rm
 }
 
 func (rm *ResourceManager) StopAll() {
@@ -91,23 +106,59 @@ type Resource interface {
 	Stop()
 }
 
-// StartRequiredServices will start the required services for the current application
-// if they are not already running based on the given parse result
+func (rm *ResourceManager) resolveValue(v configinfra.EnvString) (string, bool) {
+	if v.Env != nil {
+		val := rm.environ.Get(v.Env.Env)
+		return val, val != ""
+	}
+
+	s := v.Str
+	return s, s != ""
+}
+
+func (rm *ResourceManager) needsLocalCheck() NeedsLocalCheck {
+	return NeedsLocalCheck{
+		Infra:        rm.infraConfigs,
+		ResolveValue: rm.resolveValue,
+	}
+}
+
 func (rm *ResourceManager) StartRequiredServices(a *optracker.AsyncBuildJobs, md *meta.Data) {
 	if sqldb.IsUsed(md) && rm.GetSQLCluster() == nil {
-		a.Go("Creating PostgreSQL database cluster", true, 300*time.Millisecond, rm.StartSQLCluster(a, md))
+		dbNames := make([]string, len(md.SqlDatabases))
+		for i, db := range md.SqlDatabases {
+			dbNames[i] = db.Name
+		}
+		if rm.needsLocalCheck().NeedsLocalDatabase(dbNames) {
+			a.Go("Creating PostgreSQL database cluster", true, 300*time.Millisecond, rm.StartSQLCluster(a, md))
+		}
 	}
 
 	if pubsub.IsUsed(md) && rm.GetPubSub() == nil {
-		a.Go("Starting PubSub daemon", true, 250*time.Millisecond, rm.StartPubSub)
+		if rm.needsLocalCheck().NeedsLocalPubSub() {
+			a.Go("Starting PubSub daemon", true, 250*time.Millisecond, rm.StartPubSub)
+		}
 	}
 
 	if redis.IsUsed(md) && rm.GetRedis() == nil {
-		a.Go("Starting Redis server", true, 250*time.Millisecond, rm.StartRedis)
+		cacheNames := make([]string, len(md.CacheClusters))
+		for i, cache := range md.CacheClusters {
+			cacheNames[i] = cache.Name
+		}
+		if rm.needsLocalCheck().NeedsLocalCache(cacheNames) {
+			a.Go("Starting Redis server", true, 250*time.Millisecond, rm.StartRedis)
+		}
 	}
 
 	if objects.IsUsed(md) && rm.GetObjects() == nil {
-		a.Go("Starting Object Storage server", true, 250*time.Millisecond, rm.StartObjects(md))
+		if rm.needsLocalCheck().NeedsLocalObjects() {
+			a.Go("Starting Object Storage (Local Emulator)", true, 250*time.Millisecond, rm.StartObjects(md))
+		} else {
+			a.Go("Configuring Object Storage (External)", true, 10*time.Millisecond, func(ctx context.Context) error {
+				rm.log.Info().Msg("Using externally configured object storage")
+				return nil
+			})
+		}
 	}
 }
 
@@ -121,6 +172,7 @@ func (rm *ResourceManager) StartPubSub(ctx context.Context) error {
 
 	rm.mutex.Lock()
 	rm.servers[PubSub] = nsqd
+	rm.pubsubResolver.LocalNSQ = &NSQProvider{Host: nsqd.Addr()}
 	rm.mutex.Unlock()
 	return nil
 }
@@ -146,6 +198,7 @@ func (rm *ResourceManager) StartRedis(ctx context.Context) error {
 
 	rm.mutex.Lock()
 	rm.servers[Cache] = srv
+	rm.cacheResolver.LocalServer = srv
 	rm.mutex.Unlock()
 	return nil
 }
@@ -188,6 +241,7 @@ func (rm *ResourceManager) StartObjects(md *meta.Data) func(context.Context) err
 
 		rm.mutex.Lock()
 		rm.servers[Objects] = srv
+		rm.objectResolver.LocalObjects = srv
 		rm.mutex.Unlock()
 		return nil
 	}
@@ -231,6 +285,7 @@ func (rm *ResourceManager) StartSQLCluster(a *optracker.AsyncBuildJobs, md *meta
 
 		rm.mutex.Lock()
 		rm.servers[SQLDB] = cluster
+		rm.databaseResolver.LocalCluster = cluster
 		rm.mutex.Unlock()
 
 		// Set up the database asynchronously since it can take a while.
@@ -280,7 +335,7 @@ func (rm *ResourceManager) UpdateConfig(cfg *config.Runtime, md *meta.Data, dbPr
 
 	if cluster := rm.GetSQLCluster(); cluster != nil {
 		srv := &config.SQLServer{
-			Host: "localhost:" + strconv.Itoa(dbProxyPort),
+			Host: "localhost:" + fmt.Sprintf("%d", dbProxyPort),
 		}
 		serverID := len(cfg.SQLServers)
 		cfg.SQLServers = append(cfg.SQLServers, srv)
@@ -371,49 +426,32 @@ func (rm *ResourceManager) UpdateConfig(cfg *config.Runtime, md *meta.Data, dbPr
 	return nil
 }
 
-// SQLServerConfig returns the SQL server configuration.
-func (rm *ResourceManager) SQLServerConfig() (config.SQLServer, error) {
-	cluster := rm.GetSQLCluster()
-	if cluster == nil {
-		return config.SQLServer{}, errors.New("no SQL cluster found")
+func (rm *ResourceManager) SQLConfig(db *meta.SQLDatabase) (config.SQLServer, config.SQLDatabase, error) {
+	cfg, err := rm.databaseResolver.ResolveWithFallback(db.Name, rm.infraConfigs, rm.resolveValue)
+	if err != nil {
+		return config.SQLServer{}, config.SQLDatabase{}, err
 	}
-
-	srvCfg := config.SQLServer{
-		Host: "localhost:" + strconv.Itoa(rm.dbProxyPort),
-	}
-
-	return srvCfg, nil
+	return ToConfigSQLServer(cfg), ToConfigSQLDatabase(cfg), nil
 }
 
-// SQLDatabaseConfig returns the SQL server and database configuration for the given database.
-func (rm *ResourceManager) SQLDatabaseConfig(db *meta.SQLDatabase) (config.SQLDatabase, error) {
-	cluster := rm.GetSQLCluster()
-	if cluster == nil {
-		return config.SQLDatabase{}, errors.New("no SQL cluster found")
-	}
-
-	dbCfg := config.SQLDatabase{
-		EncoreName:   db.Name,
-		DatabaseName: db.Name,
-		User:         "encore",
-		Password:     cluster.Password,
-	}
-
-	return dbCfg, nil
-}
-
-// PubSubProviderConfig returns the PubSub provider configuration.
 func (rm *ResourceManager) PubSubProviderConfig() (config.PubsubProvider, error) {
 	nsq := rm.GetPubSub()
-	if nsq == nil {
-		return config.PubsubProvider{}, errors.New("no PubSub server found")
+	rm.mutex.Lock()
+	if nsq != nil && rm.pubsubResolver.LocalNSQ == nil {
+		rm.pubsubResolver.LocalNSQ = &NSQProvider{Host: nsq.Addr()}
+	}
+	rm.mutex.Unlock()
+
+	providers, err := rm.pubsubResolver.ResolveWithFallback(rm.infraConfigs, rm.resolveValue)
+	if err != nil {
+		return config.PubsubProvider{}, err
 	}
 
-	return config.PubsubProvider{
-		NSQ: &config.NSQProvider{
-			Host: nsq.Addr(),
-		},
-	}, nil
+	if len(providers) == 0 {
+		return config.PubsubProvider{}, errors.New("no PubSub provider available")
+	}
+
+	return ToConfigPubsubProvider(providers[0]), nil
 }
 
 // PubSubTopicConfig returns the PubSub provider and topic configuration for the given topic.
@@ -423,55 +461,61 @@ func (rm *ResourceManager) PubSubTopicConfig(topic *meta.PubSubTopic) (config.Pu
 		return config.PubsubProvider{}, config.PubsubTopic{}, err
 	}
 
-	topicCfg := config.PubsubTopic{
-		EncoreName:    topic.Name,
-		ProviderName:  topic.Name,
-		Subscriptions: make(map[string]*config.PubsubSubscription),
+	topicCfg, ok := rm.pubsubResolver.ResolveTopic(topic.Name, rm.infraConfigs, rm.resolveValue)
+	if !ok {
+		providerIdx := 0
+		if rm.infraConfigs != nil && len(rm.infraConfigs.PubSub) > 0 {
+			providerIdx = GetDefaultProviderIndex(rm.infraConfigs.PubSub)
+		}
+		topicCfg = PubSubTopicConfig{
+			ProviderID:   providerIdx,
+			EncoreName:   topic.Name,
+			ProviderName: EnsureValidNSQName(topic.Name),
+		}
 	}
 
-	return providerCfg, topicCfg, nil
+	return providerCfg, ToConfigPubsubTopic(topicCfg), nil
 }
 
-// PubSubSubscriptionConfig returns the PubSub subscription configuration for the given subscription.
-func (rm *ResourceManager) PubSubSubscriptionConfig(_ *meta.PubSubTopic, sub *meta.PubSubTopic_Subscription) (config.PubsubSubscription, error) {
-	subCfg := config.PubsubSubscription{
-		ID:           sub.Name,
-		EncoreName:   sub.Name,
-		ProviderName: sub.Name,
+func (rm *ResourceManager) PubSubSubscriptionConfig(topic *meta.PubSubTopic, sub *meta.PubSubTopic_Subscription) (config.PubsubSubscription, error) {
+	subCfg, ok := rm.pubsubResolver.ResolveSubscription(topic.Name, sub.Name, rm.infraConfigs, rm.resolveValue)
+	if !ok {
+		subCfg = PubSubSubscriptionConfig{
+			ID:           sub.Name,
+			EncoreName:   sub.Name,
+			ProviderName: EnsureValidNSQName(sub.Name),
+		}
 	}
-
-	return subCfg, nil
+	return ToConfigPubsubSubscription(subCfg), nil
 }
 
-// RedisConfig returns the Redis server and database configuration for the given database.
-func (rm *ResourceManager) RedisConfig(redis *meta.CacheCluster) (config.RedisServer, config.RedisDatabase, error) {
-	server := rm.GetRedis()
-	if server == nil {
-		return config.RedisServer{}, config.RedisDatabase{}, errors.New("no Redis server found")
+func (rm *ResourceManager) RedisConfig(redisCluster *meta.CacheCluster) (config.RedisServer, config.RedisDatabase, error) {
+	cfg, err := rm.cacheResolver.ResolveWithFallback(redisCluster.Name, rm.infraConfigs, rm.resolveValue)
+	if err != nil {
+		return config.RedisServer{}, config.RedisDatabase{}, err
 	}
-
-	srvCfg := config.RedisServer{
-		Host: server.Addr(),
-	}
-
-	dbCfg := config.RedisDatabase{
-		EncoreName: redis.Name,
-		KeyPrefix:  redis.Name + "/",
-	}
-
-	return srvCfg, dbCfg, nil
+	return ToConfigRedisServer(cfg), ToConfigRedisDatabase(cfg), nil
 }
 
-// BucketProviderConfig returns the bucket provider configuration.
 func (rm *ResourceManager) BucketProviderConfig() (config.BucketProvider, string, error) {
-	obj := rm.GetObjects()
-	if obj == nil {
-		return config.BucketProvider{}, "", errors.New("no object storage found")
+	providers, err := rm.objectResolver.ResolveWithFallback(rm.infraConfigs, rm.resolveValue)
+	if err != nil {
+		return config.BucketProvider{}, "", err
 	}
 
-	return config.BucketProvider{
-		GCS: &config.GCSBucketProvider{
-			Endpoint: obj.Endpoint(),
-		},
-	}, obj.PublicBaseURL(), nil
+	if len(providers) == 0 {
+		return config.BucketProvider{}, "", errors.New("no object storage provider available")
+	}
+
+	cfg := providers[0]
+	provider := ToConfigBucketProvider(cfg)
+
+	publicURL := ""
+	if cfg.Provider == "gcs" && cfg.GCSEndpoint != "" {
+		publicURL = cfg.GCSEndpoint
+	} else if cfg.Provider == "s3" && cfg.S3Endpoint != nil {
+		publicURL = *cfg.S3Endpoint
+	}
+
+	return provider, publicURL, nil
 }

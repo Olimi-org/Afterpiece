@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"time"
 
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"github.com/cockroachdb/errors"
 
 	"encr.dev/cli/daemon/apps"
@@ -17,9 +18,11 @@ import (
 	"encr.dev/cli/daemon/run/infra"
 	"encr.dev/internal/optracker"
 	"encr.dev/internal/version"
+	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/cueutil"
+	"encr.dev/pkg/environ"
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/promise"
@@ -61,11 +64,18 @@ func (mgr *Manager) ExecCommand(ctx context.Context, p ExecCommandParams) (err e
 		return err
 	}
 
-	rm := infra.NewResourceManager(p.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, p.NS, p.Environ, mgr.DBProxyPort, false)
+	appName := ""
+	var infraCfg *configinfra.InfraConfig
+	if p.App != nil {
+		appName = p.App.PlatformOrLocalID()
+		infraFilePath := filepath.Join(p.App.Root(), "infra.config.json")
+		infraCfg, _ = appfile.LoadInfraConfig(infraFilePath)
+	}
+	rm := infra.NewResourceManager(p.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, p.NS, environ.Environ(p.Environ), infraCfg, mgr.DBProxyPort, false)
 	defer rm.StopAll()
 
 	tracker := p.OpTracker
-	jobs := optracker.NewAsyncBuildJobs(ctx, p.App.PlatformOrLocalID(), tracker)
+	jobs := optracker.NewAsyncBuildJobs(ctx, appName, tracker)
 
 	// Parse the app to figure out what infrastructure is needed.
 	start := time.Now()

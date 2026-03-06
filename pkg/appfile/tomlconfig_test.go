@@ -25,6 +25,8 @@ base_image = "alpine"
 
 [migrations]
 strategy = "atlas"
+
+
 `)
 	f, err := Parse(data, "toml")
 	if err != nil {
@@ -55,4 +57,5 @@ strategy = "atlas"
 	if f.Migrations.Strategy != "atlas" {
 		t.Errorf("expected migrations.strategy atlas, got %q", f.Migrations.Strategy)
 	}
+
 }

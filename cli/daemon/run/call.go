@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -66,7 +67,7 @@ func CallAPI(ctx context.Context, run *Run, p *ApiCallParams) (map[string]any, e
 	}
 
 	log.Info().Int("status", resp.StatusCode).Msg("dash: api call completed")
-	return map[string]interface{}{
+	return map[string]any{
 		"status":      resp.Status,
 		"status_code": resp.StatusCode,
 		"body":        body,
@@ -149,9 +150,7 @@ func prepareRequest(ctx context.Context, baseURL string, md *v1.Data, p *ApiCall
 	if err != nil {
 		return nil, err
 	}
-	for k, v := range reqSpec.Header {
-		req.Header[k] = v
-	}
+	maps.Copy(req.Header, reqSpec.Header)
 	for _, c := range reqSpec.Cookies {
 		req.AddCookie(c)
 	}

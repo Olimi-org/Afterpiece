@@ -80,7 +80,7 @@ func (a *ObjectStorage) Validate(v *validator) {
 
 func (p *ObjectStorage) MarshalJSON() ([]byte, error) {
 	// Create a map to hold the JSON structure
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 
 	// Always add the type
 	m["type"] = p.Type
@@ -141,25 +141,25 @@ func (p *ObjectStorage) UnmarshalJSON(data []byte) error {
 }
 
 type S3 struct {
-	Region   string `json:"region"`
-	Endpoint string `json:"endpoint,omitempty"`
+	Region   EnvString `json:"region"`
+	Endpoint EnvString `json:"endpoint,omitempty"`
 
-	AccessKeyID     string    `json:"access_key_id,omitempty"`
+	AccessKeyID     EnvString `json:"access_key_id,omitempty"`
 	SecretAccessKey EnvString `json:"secret_access_key,omitempty"`
 
 	Buckets map[string]*Bucket `json:"buckets,omitempty"`
 }
 
 func (a *S3) Validate(v *validator) {
-	v.ValidateField("region", NotZero(a.Region))
-	if a.AccessKeyID != "" {
+	v.ValidateEnvString("region", a.Region, "S3 Region", NotZero[string])
+	if a.AccessKeyID.Value() != "" {
 		v.ValidatePtrEnvRef("secret_access_key", &a.SecretAccessKey, "S3 Secret Access Key", NotZero[string])
 	}
 	ValidateChildMap(v, "buckets", a.Buckets)
 }
 
 type GCS struct {
-	Endpoint string             `json:"endpoint,omitempty"`
+	Endpoint EnvString          `json:"endpoint,omitempty"`
 	Buckets  map[string]*Bucket `json:"buckets,omitempty"`
 }
 
@@ -168,17 +168,17 @@ func (a *GCS) Validate(v *validator) {
 }
 
 type Bucket struct {
-	Name          string `json:"name,omitempty"`
-	KeyPrefix     string `json:"key_prefix,omitempty"`
-	PublicBaseURL string `json:"public_base_url,omitempty"`
+	Name          EnvString `json:"name,omitempty"`
+	KeyPrefix     EnvString `json:"key_prefix,omitempty"`
+	PublicBaseURL EnvString `json:"public_base_url,omitempty"`
 }
 
 func (a *Bucket) Validate(v *validator) {
-	v.ValidateField("name", NotZero(a.Name))
+	v.ValidateEnvString("name", a.Name, "Bucket Name", NotZero[string])
 
 	v.ValidateField("public_base_url", func() error {
-		if a.PublicBaseURL != "" {
-			if _, err := url.Parse(a.PublicBaseURL); err != nil {
+		if a.PublicBaseURL.Value() != "" {
+			if _, err := url.Parse(a.PublicBaseURL.Value()); err != nil {
 				return fmt.Errorf("Not a valid URL: %v", err)
 			}
 		}
@@ -316,7 +316,7 @@ type Metrics struct {
 // MarshalJSON custom marshaller to handle dynamic types in Metrics.
 func (m *Metrics) MarshalJSON() ([]byte, error) {
 	// Create a map to hold the JSON structure
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 
 	data["type"] = m.Type
 	data["collection_interval"] = m.CollectionInterval
@@ -595,7 +595,7 @@ type PubsubTopic interface {
 	DeleteSubscription(name string)
 }
 
-type PubsubSubscription interface{}
+type PubsubSubscription any
 
 type PubsubProvider interface {
 	GetTopics() map[string]PubsubTopic
@@ -604,7 +604,7 @@ type PubsubProvider interface {
 
 // GCPPubsub specific configuration.
 type GCPPubsub struct {
-	ProjectID string               `json:"project_id,omitempty"`
+	ProjectID EnvString            `json:"project_id,omitempty"`
 	Topics    map[string]*GCPTopic `json:"topics,omitempty"`
 }
 
@@ -624,14 +624,14 @@ func (g *GCPPubsub) DeleteTopic(name string) {
 
 type GCPTopic struct {
 	Name          string             `json:"name,omitempty"`
-	ProjectID     string             `json:"project_id,omitempty"`
+	ProjectID     EnvString          `json:"project_id,omitempty"`
 	Subscriptions map[string]*GCPSub `json:"subscriptions,omitempty"`
 }
 
 func (g *GCPTopic) Validate(v *validator) {
 	v.ValidateField("name", NotZero(g.Name))
 	pubsub := Ancestor[*PubSub](v)
-	v.ValidateField("project_id", AnyNonZero(g.ProjectID, pubsub.GCP.ProjectID))
+	v.ValidateField("project_id", AnyNonZero(g.ProjectID.Value(), pubsub.GCP.ProjectID.Value()))
 	ValidateChildMap(v, "subscriptions", g.Subscriptions)
 }
 
@@ -647,27 +647,27 @@ func (g *GCPTopic) DeleteSubscription(name string) {
 
 type GCPSub struct {
 	Name       string      `json:"name,omitempty"`
-	ProjectID  string      `json:"project_id,omitempty"`
+	ProjectID  EnvString   `json:"project_id,omitempty"`
 	PushConfig *PushConfig `json:"push_config,omitempty"`
 }
 
 func (g *GCPSub) Validate(v *validator) {
 	v.ValidateField("name", NotZero(g.Name))
 	pubsub := Ancestor[*PubSub](v)
-	v.ValidateField("project_id", AnyNonZero(g.ProjectID, pubsub.GCP.ProjectID))
+	v.ValidateField("project_id", AnyNonZero(g.ProjectID.Value(), pubsub.GCP.ProjectID.Value()))
 	v.ValidateChild("push_config", g.PushConfig)
 }
 
 type PushConfig struct {
-	ServiceAccount string `json:"service_account,omitempty"`
-	JWTAudience    string `json:"jwt_audience,omitempty"`
-	ID             string `json:"id,omitempty"`
+	ServiceAccount EnvString `json:"service_account,omitempty"`
+	JWTAudience    EnvString `json:"jwt_audience,omitempty"`
+	ID             EnvString `json:"id,omitempty"`
 }
 
 func (p *PushConfig) Validate(v *validator) {
-	v.ValidateField("service_account", NotZero(p.ServiceAccount))
-	v.ValidateField("jwt_audience", NotZero(p.JWTAudience))
-	v.ValidateField("id", NotZero(p.ID))
+	v.ValidateEnvString("service_account", p.ServiceAccount, "Service Account", NotZero[string])
+	v.ValidateEnvString("jwt_audience", p.JWTAudience, "JWT Audience", NotZero[string])
+	v.ValidateEnvString("id", p.ID, "ID", NotZero[string])
 }
 
 // AWSSNS_SQS specific configuration.
@@ -710,21 +710,21 @@ func (a *AWSTopic) DeleteSubscription(name string) {
 }
 
 type AWSSub struct {
-	URL string `json:"url,omitempty"`
+	URL EnvString `json:"url,omitempty"`
 }
 
 func (a *AWSSub) Validate(v *validator) {
-	v.ValidateField("url", NotZero(a.URL))
+	v.ValidateEnvString("url", a.URL, "URL", NotZero[string])
 }
 
 // NSQPubsub specific configuration.
 type NSQPubsub struct {
-	Hosts  string               `json:"hosts,omitempty"`
+	Hosts  EnvString            `json:"hosts,omitempty"`
 	Topics map[string]*NSQTopic `json:"topics,omitempty"`
 }
 
 func (n *NSQPubsub) Validate(v *validator) {
-	v.ValidateField("hosts", NotZero(n.Hosts))
+	v.ValidateEnvString("hosts", n.Hosts, "Hosts", NotZero[string])
 	ValidateChildMap(v, "topics", n.Topics)
 }
 
@@ -769,7 +769,7 @@ func (n *NSQSub) Validate(v *validator) {
 // MarshalJSON custom marshaller for PubSub.
 func (p *PubSub) MarshalJSON() ([]byte, error) {
 	// Create a map to hold the JSON structure
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 
 	// Always add the type
 	m["type"] = p.Type
@@ -801,11 +801,11 @@ func (p *PubSub) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// structToMap converts a struct to a map[string]interface{}
+// structToMap converts a struct to a map[string]any
 // It uses json.Marshal and json.Unmarshal to avoid reflection
-func structToMap(v interface{}) map[string]interface{} {
+func structToMap(v any) map[string]any {
 	data, _ := json.Marshal(v)
-	var m map[string]interface{}
+	var m map[string]any
 	_ = json.Unmarshal(data, &m)
 	return m
 }

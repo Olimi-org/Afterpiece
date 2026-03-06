@@ -18,6 +18,7 @@ import (
 	"encr.dev/cli/daemon/secret"
 	"encr.dev/internal/optracker"
 	"encr.dev/internal/version"
+	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/cueutil"
@@ -162,9 +163,10 @@ func (mgr *Manager) testSpec(ctx context.Context, bld builder.Impl, expSet *expe
 	if err := params.App.CacheMetadata(parse.Meta); err != nil {
 		return nil, errors.Wrap(err, "cache metadata")
 	}
-
-	rm := infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, nil, mgr.DBProxyPort, true)
-
+	infraFilePath := filepath.Join(params.App.Root(), "infra.config.json")
+	infraCfg, _ := appfile.LoadInfraConfig(infraFilePath)
+	rm := infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, nil, infraCfg, mgr.DBProxyPort, true)
+	defer rm.StopAll()
 	jobs := optracker.NewAsyncBuildJobs(ctx, params.App.PlatformOrLocalID(), nil)
 	rm.StartRequiredServices(jobs, parse.Meta)
 

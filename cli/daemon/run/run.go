@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"encore.dev/appruntime/exported/config"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"encore.dev/appruntime/exported/experiments"
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/cli/daemon/namespace"
@@ -41,6 +42,7 @@ import (
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/cueutil"
+	"encr.dev/pkg/environ"
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/promise"
 	"encr.dev/pkg/svcproxy"
@@ -104,6 +106,9 @@ type StartParams struct {
 
 	// LogLevel overrides the default log level for the run.
 	LogLevel option.Option[string]
+
+	// InfraConfigs contains environment-dependent endpoint configurations.
+	InfraConfigs *configinfra.InfraConfig
 }
 
 // BrowserMode specifies how to open the browser when starting 'encore run'.
@@ -170,7 +175,7 @@ func (mgr *Manager) Start(ctx context.Context, params StartParams) (run *Run, er
 		ID:              GenID(),
 		App:             params.App,
 		NS:              params.NS,
-		ResourceManager: infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, params.Environ, mgr.DBProxyPort, false),
+		ResourceManager: infra.NewResourceManager(params.App, mgr.ClusterMgr, mgr.ObjectsMgr, mgr.PublicBuckets, params.NS, environ.Environ(params.Environ), params.InfraConfigs, mgr.DBProxyPort, false),
 		ListenAddr:      params.ListenAddr,
 		SvcProxy:        svcProxy,
 		log:             logger,
@@ -704,7 +709,6 @@ func (r *Run) StartProcGroup(params *StartProcGroupParams) (p *ProcGroup, err er
 	if params.IsReload {
 		g, ctx := errgroup.WithContext(params.Ctx)
 		for _, gw := range p.Gateways {
-			gw := gw
 			g.Go(func() error {
 				gw.pollUntilProcessIsListening(ctx)
 				return nil
