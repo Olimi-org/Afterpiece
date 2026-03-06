@@ -2,11 +2,10 @@ package infra
 
 import (
 	"fmt"
-	"net/url"
 
 	"encore.dev/appruntime/exported/config"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"encr.dev/cli/daemon/redis"
-	"encr.dev/pkg/appfile"
 )
 
 // CacheConfig represents resolved cache configuration.
@@ -23,41 +22,47 @@ type CacheResolver struct {
 	LocalServer *redis.Server
 }
 
-func (r CacheResolver) Resolve(name string, infra *appfile.Infra, resolveValue ValueResolver) (CacheConfig, bool) {
-	if infra == nil || infra.Caches == nil {
+func (r CacheResolver) Resolve(name string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (CacheConfig, bool) {
+	if infra == nil || infra.Redis == nil {
 		return CacheConfig{}, false
 	}
 
-	cacheInfra, ok := infra.Caches[name]
+	cache, ok := infra.Redis[name]
 	if !ok {
-		return CacheConfig{}, false
-	}
-
-	rawURL, ok := resolveValue(cacheInfra.URL)
-	if !ok {
-		return CacheConfig{}, false
-	}
-
-	u, err := url.Parse(rawURL)
-	if err != nil || u.Host == "" {
 		return CacheConfig{}, false
 	}
 
 	cfg := CacheConfig{
-		Host:       u.Host,
+		Host:       cache.Host,
 		EncoreName: name,
 		KeyPrefix:  name + "/",
 	}
 
-	if u.User != nil {
-		cfg.User = u.User.Username()
-		cfg.Password, _ = u.User.Password()
+	if cache.Auth != nil {
+		if cache.Auth.AuthString != nil {
+			if pass, ok := resolveValue(*cache.Auth.AuthString); ok {
+				cfg.Password = pass
+			} else {
+				return CacheConfig{}, false
+			}
+		} else if cache.Auth.Password != nil {
+			if pass, ok := resolveValue(*cache.Auth.Password); ok {
+				cfg.Password = pass
+			} else {
+				return CacheConfig{}, false
+			}
+			if cache.Auth.Username != nil {
+				if user, ok := resolveValue(*cache.Auth.Username); ok {
+					cfg.User = user
+				}
+			}
+		}
 	}
 
 	return cfg, true
 }
 
-func (r CacheResolver) ResolveWithFallback(name string, infra *appfile.Infra, resolveValue ValueResolver) (CacheConfig, error) {
+func (r CacheResolver) ResolveWithFallback(name string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (CacheConfig, error) {
 	if cfg, ok := r.Resolve(name, infra, resolveValue); ok {
 		return cfg, nil
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"encore.dev/appruntime/exported/config"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/cli/daemon/namespace"
 	"encr.dev/cli/daemon/objects"
@@ -18,7 +19,6 @@ import (
 	"encr.dev/cli/daemon/redis"
 	"encr.dev/cli/daemon/sqldb"
 	"encr.dev/internal/optracker"
-	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/environ"
 	meta "encr.dev/proto/afterpiece/parser/meta/v1"
 )
@@ -55,7 +55,7 @@ type ResourceManager struct {
 	mutex   sync.Mutex
 	servers map[Type]Resource
 
-	infraConfigs *appfile.Infra
+	infraConfigs *configinfra.InfraConfig
 
 	// Cached resolvers
 	databaseResolver DatabaseResolver
@@ -64,7 +64,7 @@ type ResourceManager struct {
 	objectResolver   ObjectResolver
 }
 
-func NewResourceManager(app *apps.Instance, sqlMgr *sqldb.ClusterManager, objectsMgr *objects.ClusterManager, publicBuckets *objects.PublicBucketServer, ns *namespace.Namespace, environ environ.Environ, infraConfigs *appfile.Infra, dbProxyPort int, forTests bool) *ResourceManager {
+func NewResourceManager(app *apps.Instance, sqlMgr *sqldb.ClusterManager, objectsMgr *objects.ClusterManager, publicBuckets *objects.PublicBucketServer, ns *namespace.Namespace, environ environ.Environ, infraConfigs *configinfra.InfraConfig, dbProxyPort int, forTests bool) *ResourceManager {
 	rm := &ResourceManager{
 		app:           app,
 		dbProxyPort:   dbProxyPort,
@@ -106,8 +106,14 @@ type Resource interface {
 	Stop()
 }
 
-func (rm *ResourceManager) resolveValue(v appfile.Value) (string, bool) {
-	return v.Resolve(rm.environ.Get)
+func (rm *ResourceManager) resolveValue(v configinfra.EnvString) (string, bool) {
+	if v.Env != nil {
+		val := rm.environ.Get(v.Env.Env)
+		return val, val != ""
+	}
+
+	s := v.Str
+	return s, s != ""
 }
 
 func (rm *ResourceManager) needsLocalCheck() NeedsLocalCheck {

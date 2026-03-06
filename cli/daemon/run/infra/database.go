@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/jackc/pgx/v5"
-
 	"encore.dev/appruntime/exported/config"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"encr.dev/cli/daemon/sqldb"
-	"encr.dev/pkg/appfile"
 )
 
 // DatabaseConfig represents resolved database configuration.
@@ -26,41 +24,40 @@ type DatabaseResolver struct {
 	LocalProxyPort int
 }
 
-func (r DatabaseResolver) Resolve(name string, infra *appfile.Infra, resolveValue ValueResolver) (DatabaseConfig, bool) {
-	if infra == nil || infra.Databases == nil {
+func (r DatabaseResolver) Resolve(name string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (DatabaseConfig, bool) {
+	if infra == nil || len(infra.SQLServers) == 0 {
 		return DatabaseConfig{}, false
 	}
 
-	dbInfra, ok := infra.Databases[name]
-	if !ok {
-		return DatabaseConfig{}, false
+	for _, srv := range infra.SQLServers {
+		if srv.Databases != nil {
+			if db, ok := srv.Databases[name]; ok {
+				username, usrOk := resolveValue(db.Username)
+				password, passOk := resolveValue(db.Password)
+				if !usrOk || !passOk {
+					return DatabaseConfig{}, false
+				}
+
+				dbName := db.Name
+				if dbName == "" {
+					dbName = name
+				}
+
+				return DatabaseConfig{
+					Host:       srv.Host,
+					Database:   dbName,
+					User:       username,
+					Password:   password,
+					EncoreName: name,
+				}, true
+			}
+		}
 	}
 
-	connStr, ok := resolveValue(dbInfra.ConnectionString)
-	if !ok {
-		return DatabaseConfig{}, false
-	}
-
-	pCfg, err := pgx.ParseConfig(connStr)
-	if err != nil {
-		return DatabaseConfig{}, false
-	}
-
-	host := pCfg.Host
-	if pCfg.Port != 0 {
-		host = fmt.Sprintf("%s:%d", host, pCfg.Port)
-	}
-
-	return DatabaseConfig{
-		Host:       host,
-		Database:   pCfg.Database,
-		User:       pCfg.User,
-		Password:   pCfg.Password,
-		EncoreName: name,
-	}, true
+	return DatabaseConfig{}, false
 }
 
-func (r DatabaseResolver) ResolveWithFallback(name string, infra *appfile.Infra, resolveValue ValueResolver) (DatabaseConfig, error) {
+func (r DatabaseResolver) ResolveWithFallback(name string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (DatabaseConfig, error) {
 	if cfg, ok := r.Resolve(name, infra, resolveValue); ok {
 		return cfg, nil
 	}

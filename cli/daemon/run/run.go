@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"encore.dev/appruntime/exported/config"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"encore.dev/appruntime/exported/experiments"
 	"encr.dev/cli/daemon/apps"
 	"encr.dev/cli/daemon/namespace"
@@ -38,7 +39,6 @@ import (
 	"encr.dev/internal/optracker"
 	"encr.dev/internal/userconfig"
 	"encr.dev/internal/version"
-	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/builder"
 	"encr.dev/pkg/builder/builderimpl"
 	"encr.dev/pkg/cueutil"
@@ -108,7 +108,7 @@ type StartParams struct {
 	LogLevel option.Option[string]
 
 	// InfraConfigs contains environment-dependent endpoint configurations.
-	InfraConfigs *appfile.Infra
+	InfraConfigs *configinfra.InfraConfig
 }
 
 // BrowserMode specifies how to open the browser when starting 'encore run'.
@@ -709,7 +709,6 @@ func (r *Run) StartProcGroup(params *StartProcGroupParams) (p *ProcGroup, err er
 	if params.IsReload {
 		g, ctx := errgroup.WithContext(params.Ctx)
 		for _, gw := range p.Gateways {
-			gw := gw
 			g.Go(func() error {
 				gw.pollUntilProcessIsListening(ctx)
 				return nil

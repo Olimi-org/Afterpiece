@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"encr.dev/internal/optracker"
 	"encr.dev/internal/userconfig"
 	"encr.dev/internal/version"
+	"encr.dev/pkg/appfile"
 	"encr.dev/pkg/fns"
 	"encr.dev/pkg/option"
 	daemonpb "encr.dev/proto/afterpiece/daemon"
@@ -137,13 +139,16 @@ func (s *Server) Run(req *daemonpb.RunRequest, stream daemonpb.Daemon_RunServer)
 		browser = run.BrowserModeFromConfig(userConfig)
 	}
 
-	appFile, err := app.AppFile()
+	_, err = app.AppFile()
 	if err != nil {
 		s.mu.Unlock()
 		_, _ = fmt.Fprintln(stderr, aurora.Sprintf(aurora.Red("failed to read app file: %v"), err))
 		sendExit(1)
 		return nil
 	}
+
+	infraFilePath := filepath.Join(req.AppRoot, "infra.config.json")
+	infraConfig, _ := appfile.LoadInfraConfig(infraFilePath)
 
 	runInstance, err := s.mgr.Start(ctx, run.StartParams{
 		App:          app,
@@ -157,7 +162,7 @@ func (s *Server) Run(req *daemonpb.RunRequest, stream daemonpb.Daemon_RunServer)
 		Browser:      browser,
 		Debug:        run.DebugModeFromProto(req.DebugMode),
 		LogLevel:     option.FromPointer(req.LogLevel),
-		InfraConfigs: appFile.Infra,
+		InfraConfigs: infraConfig,
 	})
 	if err != nil {
 		s.mu.Unlock()
@@ -199,6 +204,32 @@ func (s *Server) Run(req *daemonpb.RunRequest, stream daemonpb.Daemon_RunServer)
 			connURL.User = url.User(connURL.User.Username())
 			externalDBs[db] = connURL.String()
 
+		}
+	}
+
+	if infraConfig != nil {
+		for _, srv := range infraConfig.SQLServers {
+			if srv.Databases != nil {
+				for db := range srv.Databases {
+					if externalDBs[db] == "" {
+						externalDBs[db] = "postgres"
+						op := ops.Add(fmt.Sprintf("Configuring %s database", db), time.Now())
+						ops.Done(op, 50*time.Millisecond)
+					}
+				}
+			}
+		}
+		for name := range infraConfig.Redis {
+			op := ops.Add(fmt.Sprintf("Configuring %s cache", name), time.Now())
+			ops.Done(op, 50*time.Millisecond)
+		}
+		for _, pubsub := range infraConfig.PubSub {
+			op := ops.Add(fmt.Sprintf("Configuring %s pub/sub", pubsub.Type), time.Now())
+			ops.Done(op, 50*time.Millisecond)
+		}
+		for _, obj := range infraConfig.ObjectStorage {
+			op := ops.Add(fmt.Sprintf("Configuring %s object storage", obj.Type), time.Now())
+			ops.Done(op, 50*time.Millisecond)
 		}
 	}
 	_, _ = stderr.Write([]byte("\n"))

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"encore.dev/appruntime/exported/config"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 	"encr.dev/cli/daemon/objects"
-	"encr.dev/pkg/appfile"
 )
 
 // ObjectProviderConfig represents resolved object storage provider configuration.
@@ -32,17 +32,17 @@ type ObjectResolver struct {
 	LocalObjects *objects.Server
 }
 
-func (r ObjectResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, resolveValue ValueResolver) (ObjectProviderConfig, bool) {
-	if infra == nil || providerIdx < 0 || providerIdx >= len(infra.Objects) {
+func (r ObjectResolver) ResolveProvider(providerIdx int, infra *configinfra.InfraConfig, resolveValue ValueResolver) (ObjectProviderConfig, bool) {
+	if infra == nil || providerIdx < 0 || providerIdx >= len(infra.ObjectStorage) {
 		return ObjectProviderConfig{}, false
 	}
 
-	provider := infra.Objects[providerIdx]
-	cfg := ObjectProviderConfig{Provider: provider.Provider}
+	provider := infra.ObjectStorage[providerIdx]
+	cfg := ObjectProviderConfig{Provider: provider.Type}
 
 	for _, matcher := range objectMatchers {
-		if matcher.Match(provider.Provider) {
-			if ok := matcher.ResolveProvider(&provider, resolveValue, &cfg); !ok {
+		if matcher.Match(provider.Type) {
+			if ok := matcher.ResolveProvider(provider, resolveValue, &cfg); !ok {
 				return ObjectProviderConfig{}, false
 			}
 			return cfg, true
@@ -52,13 +52,14 @@ func (r ObjectResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, r
 	return ObjectProviderConfig{}, false
 }
 
-func (r ObjectResolver) ResolveBucket(bucketName string, infra *appfile.Infra, resolveValue ValueResolver) (BucketConfig, bool) {
-	if infra == nil {
+func (r ObjectResolver) ResolveBucket(bucketName string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (BucketConfig, bool) {
+	if infra == nil || len(infra.ObjectStorage) == 0 {
 		return BucketConfig{}, false
 	}
 
-	for providerIdx, provider := range infra.Objects {
-		if bucket, ok := provider.Buckets[bucketName]; ok {
+	for providerIdx, provider := range infra.ObjectStorage {
+		buckets := provider.GetBuckets()
+		if bucket, ok := buckets[bucketName]; ok {
 			cfg := BucketConfig{
 				ProviderID: providerIdx,
 				EncoreName: bucketName,
@@ -70,13 +71,13 @@ func (r ObjectResolver) ResolveBucket(bucketName string, infra *appfile.Infra, r
 			}
 			cfg.CloudName = name
 
-			if bucket.KeyPrefix != "" {
+			if bucket.KeyPrefix.Value() != "" {
 				if prefix, ok := resolveValue(bucket.KeyPrefix); ok {
 					cfg.KeyPrefix = prefix
 				}
 			}
 
-			if bucket.PublicBaseURL != "" {
+			if bucket.PublicBaseURL.Value() != "" {
 				if pubURL, ok := resolveValue(bucket.PublicBaseURL); ok {
 					cfg.PublicBaseURL = pubURL
 				}
@@ -89,10 +90,10 @@ func (r ObjectResolver) ResolveBucket(bucketName string, infra *appfile.Infra, r
 	return BucketConfig{}, false
 }
 
-func (r ObjectResolver) ResolveWithFallback(infra *appfile.Infra, resolveValue ValueResolver) ([]ObjectProviderConfig, error) {
-	if infra != nil && len(infra.Objects) > 0 {
+func (r ObjectResolver) ResolveWithFallback(infra *configinfra.InfraConfig, resolveValue ValueResolver) ([]ObjectProviderConfig, error) {
+	if infra != nil && len(infra.ObjectStorage) > 0 {
 		var providers []ObjectProviderConfig
-		for i := range infra.Objects {
+		for i := range infra.ObjectStorage {
 			cfg, ok := r.ResolveProvider(i, infra, resolveValue)
 			if !ok {
 				return nil, fmt.Errorf("failed to resolve object storage provider %d", i)

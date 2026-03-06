@@ -3,28 +3,45 @@ package infra
 import (
 	"testing"
 
-	"encr.dev/pkg/appfile"
+	configinfra "encore.dev/appruntime/exported/config/infra"
+	"encr.dev/cli/daemon/sqldb"
 )
 
 func mockResolver(val string, ok bool) ValueResolver {
-	return func(v appfile.Value) (string, bool) {
+	return func(v configinfra.EnvString) (string, bool) {
 		return val, ok
 	}
 }
 
 func mockRealResolver(envs map[string]string) ValueResolver {
-	return func(v appfile.Value) (string, bool) {
-		// Use the value's native Resolve function but mock the env getter
-		return v.Resolve(func(s string) string {
-			return envs[s]
-		})
+	return func(v configinfra.EnvString) (string, bool) {
+		if v.Env != nil {
+			val, ok := envs[v.Env.Env]
+			return val, ok
+		}
+		s := v.Str
+		return s, s != ""
 	}
 }
+
 func TestDatabaseResolver(t *testing.T) {
-	dummyInfra := &appfile.Infra{
-		Databases: map[string]appfile.DatabaseInfra{
-			"auth":  {ConnectionString: appfile.Value("postgres://user:pass@localhost:5432/auth")},
-			"envdb": {ConnectionString: appfile.Value("env:DB_URL")},
+	dummyInfra := &configinfra.InfraConfig{
+		SQLServers: []*configinfra.SQLServer{
+			{
+				Host: "localhost:5432",
+				Databases: map[string]*configinfra.SQLDatabase{
+					"auth": {
+						Name:     "auth",
+						Username: configinfra.EnvString{Str: "user"},
+						Password: configinfra.EnvString{Str: "pass"},
+					},
+					"envdb": {
+						Name:     "envdb",
+						Username: configinfra.EnvString{Str: "produser"},
+						Password: configinfra.EnvString{Env: &configinfra.EnvRef{Env: "DB_PASS"}},
+					},
+				},
+			},
 		},
 	}
 
@@ -37,9 +54,9 @@ func TestDatabaseResolver(t *testing.T) {
 	}
 
 	// Test 2: ENV override
-	envs := map[string]string{"DB_URL": "postgres://produser:prodpass@remote:5432/proddb"}
+	envs := map[string]string{"DB_PASS": "prodpass"}
 	cfg, ok = resolver.Resolve("envdb", dummyInfra, mockRealResolver(envs))
-	if !ok || cfg.Host != "remote:5432" || cfg.User != "produser" {
+	if !ok || cfg.Host != "localhost:5432" || cfg.Password != "prodpass" || cfg.User != "produser" {
 		t.Errorf("expected ENV override, got %+v", cfg)
 	}
 
@@ -48,13 +65,33 @@ func TestDatabaseResolver(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error fallback on missing LocalCluster, parsed: %+v", cfg)
 	}
+
+	// Test 4: Fallback works when local cluster exists
+	resolver.LocalCluster = &sqldb.Cluster{Password: "localpass"}
+	cfg, err = resolver.ResolveWithFallback("missingdb", dummyInfra, mockRealResolver(nil))
+	if err != nil || cfg.Password != "localpass" || cfg.Database != "missingdb" {
+		t.Errorf("expected localfallback to succeed, got %+v, %v", cfg, err)
+	}
 }
 
 func TestCacheResolver(t *testing.T) {
-	dummyInfra := &appfile.Infra{
-		Caches: map[string]appfile.CacheInfra{
-			"redis":      {URL: appfile.Value("redis://localhost:6379")},
-			"prod_redis": {URL: appfile.Value("env:REDIS_URL")},
+	dummyInfra := &configinfra.InfraConfig{
+		Redis: map[string]*configinfra.Redis{
+			"redis": {
+				Host: "localhost:6379",
+				Auth: &configinfra.RedisAuth{
+					Type:     "acl",
+					Username: &configinfra.EnvString{Str: "user"},
+					Password: &configinfra.EnvString{Str: "pass"},
+				},
+			},
+			"prod_redis": {
+				Host: "remote.redis:6380",
+				Auth: &configinfra.RedisAuth{
+					Type:       "auth_string",
+					AuthString: &configinfra.EnvString{Env: &configinfra.EnvRef{Env: "REDIS_PASS"}},
+				},
+			},
 		},
 	}
 
@@ -62,31 +99,31 @@ func TestCacheResolver(t *testing.T) {
 
 	// Test 1: Literal Override
 	cfg, ok := resolver.Resolve("redis", dummyInfra, mockRealResolver(nil))
-	if !ok || cfg.Host != "localhost:6379" || cfg.KeyPrefix != "redis/" {
+	if !ok || cfg.Host != "localhost:6379" || cfg.KeyPrefix != "redis/" || cfg.User != "user" || cfg.Password != "pass" {
 		t.Errorf("expected parsed redis cache, got %+v", cfg)
 	}
 
 	// Test 2: ENV override with Auth
-	envs := map[string]string{"REDIS_URL": "redis://user:pass@remote.redis:6380"}
+	envs := map[string]string{"REDIS_PASS": "envpass"}
 	cfg, ok = resolver.Resolve("prod_redis", dummyInfra, mockRealResolver(envs))
-	if !ok || cfg.Host != "remote.redis:6380" || cfg.User != "user" || cfg.Password != "pass" {
+	if !ok || cfg.Host != "remote.redis:6380" || cfg.Password != "envpass" {
 		t.Errorf("expected REDIS env override with auth, got %+v", cfg)
 	}
 }
 
 func TestObjectResolver(t *testing.T) {
-	dummyInfra := &appfile.Infra{
-		Objects: []appfile.ObjectInfra{
+	dummyInfra := &configinfra.InfraConfig{
+		ObjectStorage: []*configinfra.ObjectStorage{
 			{
-				Provider: "s3",
-				S3: &appfile.S3Infra{
-					Endpoint:        appfile.Value("http://localhost:4566"),
-					Region:          appfile.Value("us-east-1"),
-					AccessKeyID:     appfile.Value("env:AWS_KEY"),
-					SecretAccessKey: appfile.Value("secret"),
-				},
-				Buckets: map[string]appfile.BucketInfra{
-					"uploads": {Name: appfile.Value("my-uploads")},
+				Type: "s3",
+				S3: &configinfra.S3{
+					Endpoint:        configinfra.EnvString{Str: "http://localhost:4566"},
+					Region:          configinfra.EnvString{Str: "us-east-1"},
+					AccessKeyID:     configinfra.EnvString{Env: &configinfra.EnvRef{Env: "AWS_KEY"}},
+					SecretAccessKey: configinfra.EnvString{Str: "secret"},
+					Buckets: map[string]*configinfra.Bucket{
+						"uploads": {Name: configinfra.EnvString{Str: "my-uploads"}},
+					},
 				},
 			},
 		},
@@ -109,11 +146,11 @@ func TestObjectResolver(t *testing.T) {
 }
 
 func TestNeedsLocalCheck(t *testing.T) {
-	dummyInfra := &appfile.Infra{
-		Caches: map[string]appfile.CacheInfra{
-			"redis": {URL: appfile.Value("redis://localhost")},
+	dummyInfra := &configinfra.InfraConfig{
+		Redis: map[string]*configinfra.Redis{
+			"redis": {Host: "localhost"},
 		},
-		Databases: map[string]appfile.DatabaseInfra{},
+		SQLServers: []*configinfra.SQLServer{},
 	}
 
 	check := NeedsLocalCheck{
@@ -138,21 +175,21 @@ func TestNeedsLocalCheck(t *testing.T) {
 }
 
 func TestPubSubResolver(t *testing.T) {
-	dummyInfra := &appfile.Infra{
-		PubSub: []appfile.PubSubInfra{
+	dummyInfra := &configinfra.InfraConfig{
+		PubSub: []*configinfra.PubSub{
 			{
-				Provider: "gcp",
-				GCP: &appfile.GCPPubSubInfra{
-					ProjectID: appfile.Value("env:GCP_PROJECT"),
-				},
-				Topics: map[string]appfile.TopicInfra{
-					"events": {
-						Name: "events-topic",
-						Subscriptions: map[string]appfile.SubscriptionInfra{
-							"emailer": {
-								Name: appfile.Value("emailer-sub"),
-								PushConfig: &appfile.PushInfra{
-									ServiceAccount: appfile.Value("sa@gcp.com"),
+				Type: "gcp_pubsub",
+				GCP: &configinfra.GCPPubsub{
+					ProjectID: configinfra.EnvString{Env: &configinfra.EnvRef{Env: "GCP_PROJECT"}},
+					Topics: map[string]*configinfra.GCPTopic{
+						"events": {
+							Name: "events-topic",
+							Subscriptions: map[string]*configinfra.GCPSub{
+								"emailer": {
+									Name: "emailer-sub",
+									PushConfig: &configinfra.PushConfig{
+										ServiceAccount: configinfra.EnvString{Str: "sa@gcp.com"},
+									},
 								},
 							},
 						},
@@ -167,7 +204,7 @@ func TestPubSubResolver(t *testing.T) {
 
 	// Test Provider
 	cfg, ok := resolver.ResolveProvider(0, dummyInfra, mockRealResolver(envs))
-	if !ok || cfg.Provider != "gcp" || cfg.GCPProject != "my-project-123" {
+	if !ok || cfg.Provider != "gcp_pubsub" || cfg.GCPProject != "my-project-123" {
 		t.Errorf("expected GCP provider my-project-123, got %+v", cfg)
 	}
 
@@ -185,19 +222,19 @@ func TestPubSubResolver(t *testing.T) {
 }
 
 func TestResolverMissingConfigs(t *testing.T) {
-	dummyInfra := &appfile.Infra{
-		PubSub: []appfile.PubSubInfra{
-			{Provider: "nsq"}, // Missing NSQ Config
+	dummyInfra := &configinfra.InfraConfig{
+		PubSub: []*configinfra.PubSub{
+			{Type: "nsq"}, // Missing NSQ Config
 			{
-				Provider: "gcp",
-				GCP:      &appfile.GCPPubSubInfra{ProjectID: appfile.Value("env:GCP_MISSING")},
+				Type: "gcp_pubsub",
+				GCP:  &configinfra.GCPPubsub{ProjectID: configinfra.EnvString{Env: &configinfra.EnvRef{Env: "GCP_MISSING"}}},
 			},
 		},
-		Objects: []appfile.ObjectInfra{
-			{Provider: "s3"}, // Missing S3 Block
+		ObjectStorage: []*configinfra.ObjectStorage{
+			{Type: "s3"}, // Missing S3 Block
 			{
-				Provider: "s3",
-				S3:       &appfile.S3Infra{Region: appfile.Value("env:S3_MISSING")},
+				Type: "s3",
+				S3:   &configinfra.S3{Region: configinfra.EnvString{Env: &configinfra.EnvRef{Env: "S3_MISSING"}}},
 			},
 		},
 	}

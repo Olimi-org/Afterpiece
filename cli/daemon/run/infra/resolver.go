@@ -1,33 +1,41 @@
 package infra
 
 import (
-	"encr.dev/pkg/appfile"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 )
 
-// ValueResolver resolves appfile.Value instances.
-type ValueResolver func(appfile.Value) (string, bool)
+// ValueResolver resolves configinfra.EnvString instances.
+type ValueResolver func(configinfra.EnvString) (string, bool)
 
 // ResourceResolver resolves infrastructure resources from config.
 type ResourceResolver[T any] interface {
-	Resolve(name string, infra *appfile.Infra, resolveValue ValueResolver) (T, bool)
+	Resolve(name string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (T, bool)
 }
 
 // NeedsLocalCheck provides methods to determine if local services are needed.
 type NeedsLocalCheck struct {
-	Infra        *appfile.Infra
+	Infra        *configinfra.InfraConfig
 	ResolveValue ValueResolver
 }
 
 func (c NeedsLocalCheck) NeedsLocalDatabase(dbNames []string) bool {
-	if c.Infra == nil || c.Infra.Databases == nil {
+	if c.Infra == nil || len(c.Infra.SQLServers) == 0 {
 		return true
 	}
 
 	for _, name := range dbNames {
-		if _, ok := c.Infra.Databases[name]; !ok {
-			return true
+		found := false
+		for _, srv := range c.Infra.SQLServers {
+			if srv.Databases != nil {
+				if db, ok := srv.Databases[name]; ok {
+					if _, usrOk := c.ResolveValue(db.Username); usrOk {
+						found = true
+						break
+					}
+				}
+			}
 		}
-		if _, ok := c.ResolveValue(c.Infra.Databases[name].ConnectionString); !ok {
+		if !found {
 			return true
 		}
 	}
@@ -36,16 +44,23 @@ func (c NeedsLocalCheck) NeedsLocalDatabase(dbNames []string) bool {
 }
 
 func (c NeedsLocalCheck) NeedsLocalCache(cacheNames []string) bool {
-	if c.Infra == nil || c.Infra.Caches == nil {
+	if c.Infra == nil || c.Infra.Redis == nil {
 		return true
 	}
 
 	for _, name := range cacheNames {
-		if _, ok := c.Infra.Caches[name]; !ok {
+		if cache, ok := c.Infra.Redis[name]; !ok {
 			return true
-		}
-		if _, ok := c.ResolveValue(c.Infra.Caches[name].URL); !ok {
-			return true
+		} else if cache.Auth != nil {
+			if cache.Auth.AuthString != nil {
+				if _, ok := c.ResolveValue(*cache.Auth.AuthString); !ok {
+					return true
+				}
+			} else if cache.Auth.Password != nil {
+				if _, ok := c.ResolveValue(*cache.Auth.Password); !ok {
+					return true
+				}
+			}
 		}
 	}
 
@@ -60,9 +75,9 @@ func (c NeedsLocalCheck) NeedsLocalPubSub() bool {
 	for _, provider := range c.Infra.PubSub {
 		matched := false
 		for _, matcher := range pubSubMatchers {
-			if matcher.Match(provider.Provider) {
+			if matcher.Match(provider.Type) {
 				matched = true
-				if matcher.NeedsLocal(&provider, c.ResolveValue) {
+				if matcher.NeedsLocal(provider, c.ResolveValue) {
 					return true
 				}
 				break
@@ -77,16 +92,16 @@ func (c NeedsLocalCheck) NeedsLocalPubSub() bool {
 }
 
 func (c NeedsLocalCheck) NeedsLocalObjects() bool {
-	if c.Infra == nil || len(c.Infra.Objects) == 0 {
+	if c.Infra == nil || len(c.Infra.ObjectStorage) == 0 {
 		return true
 	}
 
-	for _, provider := range c.Infra.Objects {
+	for _, provider := range c.Infra.ObjectStorage {
 		matched := false
 		for _, matcher := range objectMatchers {
-			if matcher.Match(provider.Provider) {
+			if matcher.Match(provider.Type) {
 				matched = true
-				if matcher.NeedsLocal(&provider, c.ResolveValue) {
+				if matcher.NeedsLocal(provider, c.ResolveValue) {
 					return true
 				}
 				break
@@ -110,13 +125,14 @@ func GetDefaultProviderIndex[T any](providers []T) int {
 }
 
 // AutoAssignTopic assigns a topic to a provider if only one provider exists.
-func AutoAssignTopic(topicName string, infra *appfile.Infra) (providerIdx int, found bool) {
+func AutoAssignTopic(topicName string, infra *configinfra.InfraConfig) (providerIdx int, found bool) {
 	if infra == nil || len(infra.PubSub) == 0 {
 		return -1, false
 	}
 
 	for i, provider := range infra.PubSub {
-		if _, ok := provider.Topics[topicName]; ok {
+		topics := provider.GetTopics()
+		if _, ok := topics[topicName]; ok {
 			return i, true
 		}
 	}
@@ -129,18 +145,19 @@ func AutoAssignTopic(topicName string, infra *appfile.Infra) (providerIdx int, f
 }
 
 // AutoAssignBucket assigns a bucket to a provider if only one provider exists.
-func AutoAssignBucket(bucketName string, infra *appfile.Infra) (providerIdx int, found bool) {
-	if infra == nil || len(infra.Objects) == 0 {
+func AutoAssignBucket(bucketName string, infra *configinfra.InfraConfig) (providerIdx int, found bool) {
+	if infra == nil || len(infra.ObjectStorage) == 0 {
 		return -1, false
 	}
 
-	for i, provider := range infra.Objects {
-		if _, ok := provider.Buckets[bucketName]; ok {
+	for i, provider := range infra.ObjectStorage {
+		buckets := provider.GetBuckets()
+		if _, ok := buckets[bucketName]; ok {
 			return i, true
 		}
 	}
 
-	if len(infra.Objects) == 1 {
+	if len(infra.ObjectStorage) == 1 {
 		return 0, true
 	}
 

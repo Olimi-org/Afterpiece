@@ -1,4 +1,4 @@
-//go:build !encore_no_aws
+//go:build !encore_no_aws || !encore_no_local
 
 package objects
 

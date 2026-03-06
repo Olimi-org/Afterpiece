@@ -305,7 +305,7 @@ func parseInfraConfigEnv(infraCfgPath string) *Runtime {
 		case "nsq":
 			cfg.PubsubProviders[i] = &PubsubProvider{
 				NSQ: &NSQProvider{
-					Host: pubsub.NSQ.Hosts,
+					Host: pubsub.NSQ.Hosts.Value(),
 				},
 			}
 		}
@@ -319,7 +319,7 @@ func parseInfraConfigEnv(infraCfgPath string) *Runtime {
 					ProviderName:  topic.Name,
 					Subscriptions: map[string]*PubsubSubscription{},
 					GCP: &PubsubTopicGCPData{
-						ProjectID: orDefault(topic.ProjectID, pubsub.GCP.ProjectID),
+						ProjectID: orDefault(topic.ProjectID.Value(), pubsub.GCP.ProjectID.Value()),
 					},
 				}
 			case *infra.AWSTopic:
@@ -345,17 +345,17 @@ func parseInfraConfigEnv(infraCfgPath string) *Runtime {
 						EncoreName:   subName,
 						ProviderName: subscription.Name,
 						PushOnly:     subscription.PushConfig != nil,
-						GCP:          &PubsubSubscriptionGCPData{ProjectID: orDefault(subscription.ProjectID, pubsub.GCP.ProjectID)},
+						GCP:          &PubsubSubscriptionGCPData{ProjectID: orDefault(subscription.ProjectID.Value(), pubsub.GCP.ProjectID.Value())},
 					}
 					if subscription.PushConfig != nil {
-						sub.ID = subscription.PushConfig.ID
-						sub.GCP.PushServiceAccount = subscription.PushConfig.ServiceAccount
+						sub.ID = subscription.PushConfig.ID.Value()
+						sub.GCP.PushServiceAccount = subscription.PushConfig.ServiceAccount.Value()
 					}
 					cfg.PubsubTopics[topicName].Subscriptions[subName] = sub
 				case *infra.AWSSub:
 					cfg.PubsubTopics[topicName].Subscriptions[subName] = &PubsubSubscription{
 						EncoreName:   subName,
-						ProviderName: subscription.URL,
+						ProviderName: subscription.URL.Value(),
 						PushOnly:     false,
 					}
 				case *infra.NSQSub:
@@ -387,15 +387,15 @@ func parseInfraConfigEnv(infraCfgPath string) *Runtime {
 		case "gcs":
 			cfg.BucketProviders[i] = &BucketProvider{
 				GCS: &GCSBucketProvider{
-					Endpoint: storage.GCS.Endpoint,
+					Endpoint: storage.GCS.Endpoint.Value(),
 				},
 			}
 		case "s3":
 			cfg.BucketProviders[i] = &BucketProvider{
 				S3: &S3BucketProvider{
-					Region:          storage.S3.Region,
-					Endpoint:        nilOr(storage.S3.Endpoint),
-					AccessKeyID:     nilOr(storage.S3.AccessKeyID),
+					Region:          storage.S3.Region.Value(),
+					Endpoint:        nilOr(storage.S3.Endpoint.Value()),
+					AccessKeyID:     nilOr(storage.S3.AccessKeyID.Value()),
 					SecretAccessKey: nilOr(storage.S3.SecretAccessKey.Value()),
 				},
 			}
@@ -405,9 +405,9 @@ func parseInfraConfigEnv(infraCfgPath string) *Runtime {
 			cfg.Buckets[bucketName] = &Bucket{
 				ProviderID:    i,
 				EncoreName:    bucketName,
-				CloudName:     bucket.Name,
-				KeyPrefix:     bucket.KeyPrefix,
-				PublicBaseURL: bucket.PublicBaseURL,
+				CloudName:     bucket.Name.Value(),
+				KeyPrefix:     bucket.KeyPrefix.Value(),
+				PublicBaseURL: bucket.PublicBaseURL.Value(),
 			}
 		}
 	}

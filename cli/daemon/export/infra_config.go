@@ -1,15 +1,12 @@
 package export
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
 	"github.com/cockroachdb/errors"
 	"github.com/logrusorgru/aurora/v3"
-	"github.com/tailscale/hujson"
 	"golang.org/x/exp/maps"
 
 	"encore.dev/appruntime/exported/config/infra"
@@ -72,17 +69,12 @@ func buildAndValidateInfraConfig(params EmbeddedInfraConfigParams) (*infra.Infra
 
 	var infraCfg infra.InfraConfig
 	if params.File != "" {
-		data, err := os.ReadFile(params.File.String())
+		parsed, err := appfile.LoadInfraConfig(params.File.String())
 		if err != nil {
-			return nil, "", errors.Wrap(err, "infra config not found")
+			return nil, "", errors.Wrap(err, "could not parse infra config")
 		}
-		data, err = hujson.Standardize(data)
-		if err != nil {
-			return nil, "", errors.Wrap(err, "could not standardize infra config")
-		}
-		err = json.Unmarshal(data, &infraCfg)
-		if err != nil {
-			return nil, "", errors.Wrap(err, "could not decode infra config")
+		if parsed != nil {
+			infraCfg = *parsed
 		}
 	}
 	infraCfg.HostedGateways = gateways
@@ -294,7 +286,7 @@ func buildAndValidateInfraConfig(params EmbeddedInfraConfigParams) (*infra.Infra
 				return b.Name == name
 			})
 			if ok {
-				if metaBkt.Public && infraCfg.PublicBaseURL == "" {
+				if metaBkt.Public && infraCfg.PublicBaseURL.Value() == "" {
 					path := infra.JSONPath("buckets").Append(infra.JSONPath(name)).Append("public_base_url")
 					validationErrors[path] = errors.New("Bucket is public but no public base URL is set")
 					return nil, "", configError(missing, validationErrors)
@@ -382,11 +374,12 @@ func generateTable(rows [][]string) string {
 
 	// Helper function to create a horizontal line
 	createLine := func() string {
-		line := "+"
+		var line strings.Builder
+		line.WriteString("+")
 		for _, width := range colWidths {
-			line += strings.Repeat("-", width+2) + "+"
+			line.WriteString(strings.Repeat("-", width+2) + "+")
 		}
-		return line + "\n"
+		return line.String() + "\n"
 	}
 
 	// Write top border

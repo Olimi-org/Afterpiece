@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/tailscale/hujson"
@@ -78,117 +77,6 @@ type File struct {
 
 	// Migrations configures the database migration strategy.
 	Migrations Migrations `json:"migrations,omitzero" toml:"migrations,omitzero"`
-
-	// Infra defines external infrastructure configurations per environment
-	Infra *Infra `json:"infra,omitempty" toml:"infra,omitempty"`
-}
-
-type Infra struct {
-	Databases map[string]DatabaseInfra `json:"databases,omitempty" toml:"databases,omitempty"`
-	Caches    map[string]CacheInfra    `json:"caches,omitempty" toml:"caches,omitempty"`
-	PubSub    []PubSubInfra            `json:"pubsub,omitempty" toml:"pubsub,omitempty"`
-	Objects   []ObjectInfra            `json:"objects,omitempty" toml:"objects,omitempty"`
-}
-
-// Value is a configuration value that can be either a literal string
-// or an environment variable reference in the form "env:VAR_NAME".
-type Value string
-
-// Resolve returns the resolved value. If the value starts with "env:",
-// it looks up the environment variable using the provided getter.
-// Returns the resolved value and true if found, or empty string and false
-// if the environment variable is not set.
-func (v Value) Resolve(getEnv func(string) string) (string, bool) {
-	s := string(v)
-	if envVar, ok := strings.CutPrefix(s, "env:"); ok {
-		val := getEnv(envVar)
-		return val, val != ""
-	}
-	return s, s != ""
-}
-
-// DatabaseInfra configures an external SQL database.
-type DatabaseInfra struct {
-	ConnectionString Value `json:"connection_string" toml:"connection_string"`
-}
-
-// CacheInfra configures an external Redis cache.
-type CacheInfra struct {
-	URL Value `json:"url" toml:"url"`
-}
-
-// PubSubInfra configures a PubSub provider with its topics.
-type PubSubInfra struct {
-	Provider string `json:"provider" toml:"provider"`
-
-	NSQ   *NSQPubSubInfra   `json:"nsq,omitempty" toml:"nsq,omitempty"`
-	GCP   *GCPPubSubInfra   `json:"gcp,omitempty" toml:"gcp,omitempty"`
-	AWS   *AWSPubSubInfra   `json:"aws,omitempty" toml:"aws,omitempty"`
-	Azure *AzurePubSubInfra `json:"azure,omitempty" toml:"azure,omitempty"`
-
-	Topics map[string]TopicInfra `json:"topics,omitempty" toml:"topics,omitempty"`
-}
-
-type NSQPubSubInfra struct {
-	Hosts Value `json:"hosts" toml:"hosts"`
-}
-
-type GCPPubSubInfra struct {
-	ProjectID Value `json:"project_id" toml:"project_id"`
-}
-
-type AWSPubSubInfra struct {
-	Region Value `json:"region" toml:"region"`
-}
-
-type AzurePubSubInfra struct {
-	Namespace Value `json:"namespace" toml:"namespace"`
-}
-
-type TopicInfra struct {
-	Name          string                       `json:"name" toml:"name"`
-	ProjectID     Value                        `json:"project_id,omitempty" toml:"project_id,omitempty"`
-	Subscriptions map[string]SubscriptionInfra `json:"subscriptions,omitempty" toml:"subscriptions,omitempty"`
-}
-
-type SubscriptionInfra struct {
-	Name       Value      `json:"name" toml:"name"`
-	ProjectID  Value      `json:"project_id,omitempty" toml:"project_id,omitempty"`
-	URL        Value      `json:"url,omitempty" toml:"url,omitempty"`
-	PushConfig *PushInfra `json:"push_config,omitempty" toml:"push_config,omitempty"`
-}
-
-type PushInfra struct {
-	ServiceAccount Value `json:"service_account" toml:"service_account"`
-	JWTAudience    Value `json:"jwt_audience" toml:"jwt_audience"`
-	ID             Value `json:"id" toml:"id"`
-}
-
-// ObjectInfra configures an object storage provider with its buckets.
-type ObjectInfra struct {
-	Provider string `json:"provider" toml:"provider"`
-
-	S3  *S3Infra  `json:"s3,omitempty" toml:"s3,omitempty"`
-	GCS *GCSInfra `json:"gcs,omitempty" toml:"gcs,omitempty"`
-
-	Buckets map[string]BucketInfra `json:"buckets,omitempty" toml:"buckets,omitempty"`
-}
-
-type S3Infra struct {
-	Endpoint        Value `json:"endpoint,omitempty" toml:"endpoint,omitempty"`
-	Region          Value `json:"region" toml:"region"`
-	AccessKeyID     Value `json:"access_key_id,omitempty" toml:"access_key_id,omitempty"`
-	SecretAccessKey Value `json:"secret_access_key,omitempty" toml:"secret_access_key,omitempty"`
-}
-
-type GCSInfra struct {
-	Endpoint Value `json:"endpoint,omitempty" toml:"endpoint,omitempty"`
-}
-
-type BucketInfra struct {
-	Name          Value `json:"name" toml:"name"`
-	KeyPrefix     Value `json:"key_prefix,omitempty" toml:"key_prefix,omitempty"`
-	PublicBaseURL Value `json:"public_base_url,omitempty" toml:"public_base_url,omitempty"`
 }
 
 type Migrations struct {

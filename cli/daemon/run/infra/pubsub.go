@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"encore.dev/appruntime/exported/config"
-	"encr.dev/pkg/appfile"
+	configinfra "encore.dev/appruntime/exported/config/infra"
 )
 
 // PubSubProviderConfig represents resolved PubSub provider configuration.
@@ -47,17 +47,17 @@ type NSQProvider struct {
 	Host string
 }
 
-func (r PubSubResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, resolveValue ValueResolver) (PubSubProviderConfig, bool) {
+func (r PubSubResolver) ResolveProvider(providerIdx int, infra *configinfra.InfraConfig, resolveValue ValueResolver) (PubSubProviderConfig, bool) {
 	if infra == nil || providerIdx < 0 || providerIdx >= len(infra.PubSub) {
 		return PubSubProviderConfig{}, false
 	}
 
 	provider := infra.PubSub[providerIdx]
-	cfg := PubSubProviderConfig{Provider: provider.Provider}
+	cfg := PubSubProviderConfig{Provider: provider.Type}
 
 	for _, matcher := range pubSubMatchers {
-		if matcher.Match(provider.Provider) {
-			if ok := matcher.ResolveProvider(&provider, resolveValue, &cfg); !ok {
+		if matcher.Match(provider.Type) {
+			if ok := matcher.ResolveProvider(provider, resolveValue, &cfg); !ok {
 				return PubSubProviderConfig{}, false
 			}
 			return cfg, true
@@ -67,23 +67,33 @@ func (r PubSubResolver) ResolveProvider(providerIdx int, infra *appfile.Infra, r
 	return PubSubProviderConfig{}, false
 }
 
-func (r PubSubResolver) ResolveTopic(topicName string, infra *appfile.Infra, resolveValue ValueResolver) (PubSubTopicConfig, bool) {
+func (r PubSubResolver) ResolveTopic(topicName string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (PubSubTopicConfig, bool) {
 	if infra == nil {
 		return PubSubTopicConfig{}, false
 	}
 
 	for providerIdx, provider := range infra.PubSub {
-		if topic, ok := provider.Topics[topicName]; ok {
+		topics := provider.GetTopics()
+		if topic, ok := topics[topicName]; ok {
+			providerName := topicName
+			if gcpTopic, isGcp := topic.(*configinfra.GCPTopic); isGcp && gcpTopic.Name != "" {
+				providerName = gcpTopic.Name
+			} else if nsqTopic, isNsq := topic.(*configinfra.NSQTopic); isNsq && nsqTopic.Name != "" {
+				providerName = nsqTopic.Name
+			} else if awsTopic, isAws := topic.(*configinfra.AWSTopic); isAws && awsTopic.ARN != "" {
+				providerName = awsTopic.ARN
+			}
+
 			cfg := PubSubTopicConfig{
-				Provider:     provider.Provider,
+				Provider:     provider.Type,
 				ProviderID:   providerIdx,
 				EncoreName:   topicName,
-				ProviderName: topic.Name,
+				ProviderName: providerName,
 			}
 
 			for _, matcher := range pubSubMatchers {
-				if matcher.Match(provider.Provider) {
-					matcher.ResolveTopic(&topic, &provider, resolveValue, &cfg)
+				if matcher.Match(provider.Type) {
+					matcher.ResolveTopic(topic, provider, resolveValue, &cfg)
 					break
 				}
 			}
@@ -95,30 +105,45 @@ func (r PubSubResolver) ResolveTopic(topicName string, infra *appfile.Infra, res
 	return PubSubTopicConfig{}, false
 }
 
-func (r PubSubResolver) ResolveSubscription(topicName, subName string, infra *appfile.Infra, resolveValue ValueResolver) (PubSubSubscriptionConfig, bool) {
+func (r PubSubResolver) ResolveSubscription(topicName, subName string, infra *configinfra.InfraConfig, resolveValue ValueResolver) (PubSubSubscriptionConfig, bool) {
 	if infra == nil {
 		return PubSubSubscriptionConfig{}, false
 	}
 
 	for _, provider := range infra.PubSub {
-		if topic, ok := provider.Topics[topicName]; ok {
-			if sub, ok := topic.Subscriptions[subName]; ok {
+		topics := provider.GetTopics()
+		if topic, ok := topics[topicName]; ok {
+			subs := topic.GetSubscriptions()
+			if sub, ok := subs[subName]; ok {
 				cfg := PubSubSubscriptionConfig{
-					Provider:   provider.Provider,
+					Provider:   provider.Type,
 					EncoreName: subName,
-					PushOnly:   sub.PushConfig != nil,
 				}
 
-				name, ok := resolveValue(sub.Name)
+				envName := configinfra.EnvString{Str: subName}
+				pushOnly := false
+				if gcpSub, isGcp := sub.(*configinfra.GCPSub); isGcp {
+					if gcpSub.Name != "" {
+						envName = configinfra.EnvString{Str: gcpSub.Name}
+					}
+					pushOnly = gcpSub.PushConfig != nil
+				} else if nsqSub, isNsq := sub.(*configinfra.NSQSub); isNsq && nsqSub.Name != "" {
+					envName = configinfra.EnvString{Str: nsqSub.Name}
+				} else if awsSub, isAws := sub.(*configinfra.AWSSub); isAws && awsSub.URL.Value() != "" {
+					envName = awsSub.URL
+				}
+
+				cfg.PushOnly = pushOnly
+				resolvedName, ok := resolveValue(envName)
 				if !ok {
 					return PubSubSubscriptionConfig{}, false
 				}
-				cfg.ProviderName = name
-				cfg.ID = name
+				cfg.ProviderName = resolvedName
+				cfg.ID = resolvedName
 
 				for _, matcher := range pubSubMatchers {
-					if matcher.Match(provider.Provider) {
-						if ok := matcher.ResolveSubscription(&sub, &provider, resolveValue, &cfg); !ok {
+					if matcher.Match(provider.Type) {
+						if ok := matcher.ResolveSubscription(sub, provider, resolveValue, &cfg); !ok {
 							return PubSubSubscriptionConfig{}, false
 						}
 						break
@@ -133,7 +158,7 @@ func (r PubSubResolver) ResolveSubscription(topicName, subName string, infra *ap
 	return PubSubSubscriptionConfig{}, false
 }
 
-func (r PubSubResolver) ResolveWithFallback(infra *appfile.Infra, resolveValue ValueResolver) ([]PubSubProviderConfig, error) {
+func (r PubSubResolver) ResolveWithFallback(infra *configinfra.InfraConfig, resolveValue ValueResolver) ([]PubSubProviderConfig, error) {
 	if infra != nil && len(infra.PubSub) > 0 {
 		var providers []PubSubProviderConfig
 		for i := range infra.PubSub {
