@@ -104,7 +104,7 @@ func (e *partialEndpoint) upsertPathParam(up PathParamUpdate) PathSegment {
 	}
 	seg := PathSegment{
 		Type:      SegmentTypeParam,
-		ValueType: ptr[SegmentValueType]("string"),
+		ValueType: new(SegmentValueType("string")),
 		Value:     &up.Param,
 		Doc:       wrapDoc(up.Doc, 73),
 	}

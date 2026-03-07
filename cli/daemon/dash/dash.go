@@ -83,7 +83,7 @@ func (h *handler) GetNamespace(ctx context.Context, appID string) (*namespace.Na
 func (h *handler) Handle(ctx context.Context, reply jsonrpc2.Replier, r jsonrpc2.Request) error {
 	reply = makeProtoReplier(reply)
 
-	unmarshal := func(dst interface{}) error {
+	unmarshal := func(dst any) error {
 		if r.Params() == nil {
 			return fmt.Errorf("missing params")
 		}
@@ -139,9 +139,9 @@ func (h *handler) Handle(ctx context.Context, reply jsonrpc2.Replier, r jsonrpc2
 		return reply(ctx, nil, nil)
 	case "telemetry":
 		type params struct {
-			Event      string                 `json:"event"`
-			Properties map[string]interface{} `json:"properties"`
-			Once       bool                   `json:"once,omitempty"`
+			Event      string         `json:"event"`
+			Properties map[string]any `json:"properties"`
+			Once       bool           `json:"once,omitempty"`
 		}
 		var p params
 		if err := unmarshal(&p); err != nil {
@@ -279,7 +279,7 @@ func (h *handler) Handle(ctx context.Context, reply jsonrpc2.Replier, r jsonrpc2
 		app, err := h.apps.FindLatestByPlatformOrLocalID(params.AppID)
 		if err != nil {
 			if errors.Is(err, apps.ErrNotFound) {
-				return reply(ctx, map[string]interface{}{"running": false}, nil)
+				return reply(ctx, map[string]any{"running": false}, nil)
 			} else {
 				return reply(ctx, nil, err)
 			}
@@ -729,7 +729,7 @@ func (s *Server) onOutput(r *run.Run, out []byte) {
 	copy(out2, out)
 	s.notify(&notification{
 		Method: "process/output",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"appID":  r.App.PlatformOrLocalID(),
 			"pid":    r.ID,
 			"output": out2,

@@ -25,12 +25,7 @@ type RefUsage struct {
 }
 
 func (u *RefUsage) HasPerm(perm Perm) bool {
-	for _, p := range u.Perms {
-		if p == perm {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(u.Perms, perm)
 }
 
 type Perm string

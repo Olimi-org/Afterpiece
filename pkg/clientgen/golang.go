@@ -350,7 +350,7 @@ func (g *golang) generateServiceClient(file *File, service *meta.Service, tags c
 				interfaceMethods = append(interfaceMethods, Line())
 			}
 
-			for _, line := range strings.Split(strings.TrimSpace(*rpc.Doc), "\n") {
+			for line := range strings.SplitSeq(strings.TrimSpace(*rpc.Doc), "\n") {
 				interfaceMethods = append(interfaceMethods, Comment(line))
 			}
 		}
@@ -381,7 +381,7 @@ func (g *golang) generateServiceClient(file *File, service *meta.Service, tags c
 		}
 
 		if rpc.Doc != nil && *rpc.Doc != "" && !g.skipDocs {
-			for _, line := range strings.Split(strings.TrimSpace(*rpc.Doc), "\n") {
+			for line := range strings.SplitSeq(strings.TrimSpace(*rpc.Doc), "\n") {
 				if line != "" {
 					file.Comment(line)
 				}
@@ -1037,7 +1037,7 @@ func (g *golang) generateTypeDefinitions(stmt FileStatement, decls []*schema.Dec
 	for _, decl := range decls {
 		// Write the docs
 		if decl.Doc != "" && !g.skipDocs {
-			for _, line := range strings.Split(strings.TrimSpace(decl.Doc), "\n") {
+			for line := range strings.SplitSeq(strings.TrimSpace(decl.Doc), "\n") {
 				stmt.Comment(line)
 			}
 		} else {
@@ -1303,7 +1303,7 @@ func (g *golang) writeErrorType(file *File) {
 	file.Type().Id("ErrCode").Int()
 	errTypes := make([]Code, 0)
 	for i, err := range errorCodes {
-		for _, line := range strings.Split(strings.TrimSpace(err.Comment), "\n") {
+		for line := range strings.SplitSeq(strings.TrimSpace(err.Comment), "\n") {
 			// Fix the comment with the prefix
 			if strings.HasPrefix(line, err.Name) {
 				line = ErrPrefix + line

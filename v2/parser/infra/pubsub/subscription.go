@@ -6,8 +6,6 @@ import (
 	"go/token"
 	"time"
 
-	"golang.org/x/tools/go/ast/astutil"
-
 	"encr.dev/pkg/errors"
 	"encr.dev/pkg/option"
 	"encr.dev/pkg/paths"
@@ -220,7 +218,7 @@ func parseMethodHandler(d parseutil.ReferenceInfo, handler ast.Expr) option.Opti
 		errs.Add(ErrInvalidMethodHandler.AtGoNode(call))
 		return none
 	}
-	x := astutil.Unparen(sel.X)
+	x := ast.Unparen(sel.X)
 
 	// Parse the type declaration.
 	typ := parser.ParseType(f, x)

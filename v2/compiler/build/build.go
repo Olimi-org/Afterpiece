@@ -280,7 +280,7 @@ func (b *builder) buildMain() {
 		}
 
 		args = append(args, b.cfg.MainPkg.String())
-		
+
 		goroot := build.GOROOT
 		cmd := exec.Command(goroot.Join("bin", "go"+b.exe()).ToIO(), args...)
 
@@ -419,8 +419,8 @@ func convertCompileErrors(errList *perr.List, out []byte, workdir, appRoot, relw
 // However for generated files which don't exist in their own folders, we will
 // still be able to render the source causing the issue
 func changeToAppRootFile(compiledFile string, workDirectory, appRoot string) string {
-	if strings.HasPrefix(compiledFile, workDirectory) {
-		fileInOriginalSrc := strings.TrimPrefix(compiledFile, workDirectory)
+	if after, ok := strings.CutPrefix(compiledFile, workDirectory); ok {
+		fileInOriginalSrc := after
 		fileInOriginalSrc = path.Join(appRoot, fileInOriginalSrc)
 
 		if _, err := os.Stat(fileInOriginalSrc); err == nil {

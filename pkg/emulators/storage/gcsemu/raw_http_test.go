@@ -213,7 +213,6 @@ func testRawHttp(t *testing.T, bh BucketHandle, httpClient *http.Client, url str
 
 	// Run each test individually.
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			req := tc.makeRequest(t)
 			rsp, err := httpClient.Do(req)

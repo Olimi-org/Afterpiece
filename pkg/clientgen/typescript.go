@@ -1922,7 +1922,7 @@ func (ts *typescript) getUnionCases(typ *schema.Type) []*schema.Type {
 
 type bailout struct{ err error }
 
-func (ts *typescript) errorf(format string, args ...interface{}) {
+func (ts *typescript) errorf(format string, args ...any) {
 	panic(bailout{fmt.Errorf(format, args...)})
 }
 

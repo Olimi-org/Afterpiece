@@ -48,13 +48,10 @@ func Packages(quit chan struct{}, errs *perr.List, l *pkginfo.Loader, root paths
 	}()
 
 	// Start the workers. One per GOMAXPROCS, but at least 4
-	numWorkers := runtime.GOMAXPROCS(0)
-	if numWorkers < 4 {
-		numWorkers = 4
-	}
+	numWorkers := max(runtime.GOMAXPROCS(0), 4)
 	results := make(chan *pkginfo.Package, numWorkers)
 	var activeWorkers sync.WaitGroup
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		activeWorkers.Add(1)
 		go worker(&activeWorkers, work, results)
 	}

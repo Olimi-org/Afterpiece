@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -140,9 +141,7 @@ func (mgr *Manager) UpdateKey(appSlug, key, value string) {
 	defer mgr.mu.Unlock()
 	if data, ok := mgr.cache[appSlug]; ok {
 		vals := make(map[string]string)
-		for k, v := range data.Values {
-			vals[k] = v
-		}
+		maps.Copy(vals, data.Values)
 		vals[key] = value
 		mgr.cache[appSlug] = &Data{
 			Synced: time.Now(),
@@ -302,9 +301,7 @@ func applyLocalOverrides(app *apps.Instance, src *Data) (*Data, error) {
 		Synced: src.Synced,
 		Values: make(map[string]string, len(src.Values)),
 	}
-	for k, v := range src.Values {
-		updated.Values[k] = v
-	}
+	maps.Copy(updated.Values, src.Values)
 
 	ctx := cuecontext.New()
 	loadCfg := &load.Config{

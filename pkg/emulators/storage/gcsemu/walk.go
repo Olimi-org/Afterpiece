@@ -25,7 +25,7 @@ func (g *GcsEmu) makeBucketListResults(ctx context.Context, baseUrl HttpBaseUrl,
 	var prefixes []string
 	seenPrefixes := make(map[string]bool)
 
-	dbgWalk := func(fmt string, args ...interface{}) {
+	dbgWalk := func(fmt string, args ...any) {
 		if g.verbose {
 			g.log(nil, fmt, args...)
 		}

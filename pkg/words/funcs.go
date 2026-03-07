@@ -11,7 +11,7 @@ func Select(n int) ([]string, error) {
 	selected := make([]string, n)
 	words := shortWords.Get()
 	max := big.NewInt(int64(len(words)))
-	for i := 0; i < n; i++ {
+	for i := range n {
 		j, err := rand.Int(rand.Reader, max)
 		if err != nil {
 			return nil, fmt.Errorf("wordlist.Select %d: %v", n, err)

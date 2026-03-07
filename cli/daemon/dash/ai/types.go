@@ -118,8 +118,9 @@ type AIUpdateType interface {
 
 type AIStreamUpdate = Result[AIUpdateType]
 
+//go:fix inline
 func ptr[T any](val T) *T {
-	return &val
+	return new(val)
 }
 
 type Result[T any] struct {

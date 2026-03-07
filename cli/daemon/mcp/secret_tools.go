@@ -27,7 +27,7 @@ func (m *Manager) getSecrets(ctx context.Context, request mcp.CallToolRequest) (
 	}
 
 	// Build a map of all secrets and the services that use them
-	secretUsageMap := make(map[string][]map[string]interface{})
+	secretUsageMap := make(map[string][]map[string]any)
 
 	// First go through all packages to find secrets
 	for _, pkg := range md.Pkgs {
@@ -35,14 +35,14 @@ func (m *Manager) getSecrets(ctx context.Context, request mcp.CallToolRequest) (
 			// For each secret in this package
 			for _, secretName := range pkg.Secrets {
 				// Create usage info
-				usageInfo := map[string]interface{}{
+				usageInfo := map[string]any{
 					"service_name": pkg.ServiceName,
 					"package_path": pkg.RelPath,
 				}
 
 				// Add to the map
 				if _, exists := secretUsageMap[secretName]; !exists {
-					secretUsageMap[secretName] = make([]map[string]interface{}, 0)
+					secretUsageMap[secretName] = make([]map[string]any, 0)
 				}
 				secretUsageMap[secretName] = append(secretUsageMap[secretName], usageInfo)
 			}
@@ -50,11 +50,11 @@ func (m *Manager) getSecrets(ctx context.Context, request mcp.CallToolRequest) (
 	}
 
 	// Build the result
-	secrets := make([]map[string]interface{}, 0)
+	secrets := make([]map[string]any, 0)
 
 	// Convert the map to an array
 	for secretName, usages := range secretUsageMap {
-		secretInfo := map[string]interface{}{
+		secretInfo := map[string]any{
 			"name":   secretName,
 			"usages": usages,
 		}

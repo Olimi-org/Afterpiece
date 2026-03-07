@@ -66,7 +66,7 @@ func (d *Driver) CreateCluster(ctx context.Context, p *sqldb.CreateParams, log z
 
 		const sleepTime = 250 * time.Millisecond
 		const maxLoops = (30 * time.Second) / sleepTime
-		for i := 0; i < int(maxLoops); i++ {
+		for range int(maxLoops) {
 			var conn *pgx.Conn
 			connCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			conn, err = pgx.Connect(connCtx, uri)
@@ -100,7 +100,7 @@ func (d *Driver) CreateCluster(ctx context.Context, p *sqldb.CreateParams, log z
 
 	// waitForPort waits for the port to become available before returning.
 	waitForPort := func() (*sqldb.ClusterStatus, error) {
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			status, err = d.ClusterStatus(ctx, cid)
 			if err != nil {
 				return nil, errors.Wrap(err, "unable to wait for port")

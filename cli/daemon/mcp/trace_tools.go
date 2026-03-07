@@ -116,7 +116,7 @@ func (m *Manager) getTrace(ctx context.Context, request mcp.CallToolRequest) (*m
 		return nil, fmt.Errorf("failed to get app: %w", err)
 	}
 
-	traceIDs, ok := request.Params.Arguments["trace_ids"].([]interface{})
+	traceIDs, ok := request.Params.Arguments["trace_ids"].([]any)
 	if !ok || len(traceIDs) == 0 {
 		return nil, fmt.Errorf("trace_ids is required and must be a non-empty array")
 	}

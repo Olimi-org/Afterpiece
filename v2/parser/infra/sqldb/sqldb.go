@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -290,10 +291,5 @@ func pkgIsLikelyService(pkg *pkginfo.Package) bool {
 		}
 	}
 
-	for _, file := range pkg.Files {
-		if isLikelyService(file) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(pkg.Files, isLikelyService)
 }

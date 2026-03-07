@@ -26,7 +26,6 @@ func Test_renderSrc_Simple(t *testing.T) {
 	}
 
 	for _, tp := range testParams {
-		tp := tp
 		t.Run(tp.testName, func(t *testing.T) {
 			loc := FromCueTokenPos(&errorLoc{path.Join(testDataFullPath, "test.cue"), tp.line, tp.column}, testDataFullPath)
 			loc.Text = tp.message

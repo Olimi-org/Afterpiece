@@ -15,26 +15,26 @@ func toPathSegments(p *resourcepaths.Path, docs map[string]string) []PathSegment
 	for _, s := range p.Segments {
 		switch s.Type {
 		case resourcepaths.Literal:
-			rtn = append(rtn, PathSegment{Type: SegmentTypeLiteral, Value: ptr(s.Value)})
+			rtn = append(rtn, PathSegment{Type: SegmentTypeLiteral, Value: new(s.Value)})
 		case resourcepaths.Param:
 			rtn = append(rtn, PathSegment{
 				Type:      SegmentTypeParam,
-				Value:     ptr(s.Value),
-				ValueType: ptr(SegmentValueType(strings.ToLower(s.ValueType.String()))),
+				Value:     new(s.Value),
+				ValueType: new(SegmentValueType(strings.ToLower(s.ValueType.String()))),
 				Doc:       docs[s.Value],
 			})
 		case resourcepaths.Wildcard:
 			rtn = append(rtn, PathSegment{
 				Type:      SegmentTypeWildcard,
-				Value:     ptr(s.Value),
-				ValueType: ptr(SegmentValueType(strings.ToLower(s.ValueType.String()))),
+				Value:     new(s.Value),
+				ValueType: new(SegmentValueType(strings.ToLower(s.ValueType.String()))),
 				Doc:       docs[s.Value],
 			})
 		case resourcepaths.Fallback:
 			rtn = append(rtn, PathSegment{
 				Type:      SegmentTypeFallback,
-				Value:     ptr(s.Value),
-				ValueType: ptr(SegmentValueType(strings.ToLower(s.ValueType.String()))),
+				Value:     new(s.Value),
+				ValueType: new(SegmentValueType(strings.ToLower(s.ValueType.String()))),
 				Doc:       docs[s.Value],
 			})
 		}
@@ -47,8 +47,8 @@ func metaPathToPathSegments(metaPath *meta.Path) []PathSegment {
 	for _, seg := range metaPath.Segments {
 		segments = append(segments, PathSegment{
 			Type:      toSegmentType(seg.Type),
-			Value:     ptr(seg.Value),
-			ValueType: ptr(toSegmentValueType(seg.ValueType)),
+			Value:     new(seg.Value),
+			ValueType: new(toSegmentValueType(seg.ValueType)),
 		})
 	}
 	return segments

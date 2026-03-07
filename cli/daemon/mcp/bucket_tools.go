@@ -44,12 +44,12 @@ func (m *Manager) listObjects(ctx context.Context, request mcp.CallToolRequest) 
 	if !ok {
 		return nil, fmt.Errorf("buckets is not an array")
 	}
-	objects := map[string][]map[string]interface{}{}
+	objects := map[string][]map[string]any{}
 	for _, bucket := range buckets {
 		bucketName := bucket.(string)
-		var bucketObjects []map[string]interface{}
+		var bucketObjects []map[string]any
 		err = store.Walk(ctx, bucketName, func(ctx context.Context, filename string, fInfo os.FileInfo) error {
-			objectInfo := map[string]interface{}{
+			objectInfo := map[string]any{
 				"name":          filename,
 				"size":          fInfo.Size(),
 				"last_modified": fInfo.ModTime(),
@@ -82,7 +82,7 @@ func (m *Manager) getStorageBuckets(ctx context.Context, request mcp.CallToolReq
 	}
 
 	// Build map of services that use each bucket with their operations
-	bucketUsageByService := make(map[string][]map[string]interface{})
+	bucketUsageByService := make(map[string][]map[string]any)
 
 	for _, svc := range md.Svcs {
 		for _, bucketUsage := range svc.Buckets {
@@ -95,21 +95,21 @@ func (m *Manager) getStorageBuckets(ctx context.Context, request mcp.CallToolReq
 			}
 
 			// Create usage info
-			usageInfo := map[string]interface{}{
+			usageInfo := map[string]any{
 				"service_name": svc.Name,
 				"operations":   operations,
 			}
 
 			// Add to map
 			if _, exists := bucketUsageByService[bucketName]; !exists {
-				bucketUsageByService[bucketName] = make([]map[string]interface{}, 0)
+				bucketUsageByService[bucketName] = make([]map[string]any, 0)
 			}
 			bucketUsageByService[bucketName] = append(bucketUsageByService[bucketName], usageInfo)
 		}
 	}
 
 	// Collect bucket definition locations from trace nodes
-	bucketDefLocations := make(map[string]map[string]interface{})
+	bucketDefLocations := make(map[string]map[string]any)
 
 	// Find bucket definitions in trace nodes if possible
 	// Currently no specific bucket definition node type in the TraceNode,
@@ -117,9 +117,9 @@ func (m *Manager) getStorageBuckets(ctx context.Context, request mcp.CallToolReq
 	// if the metadata provides better tracking.
 
 	// Process all buckets
-	buckets := make([]map[string]interface{}, 0)
+	buckets := make([]map[string]any, 0)
 	for _, bucket := range md.Buckets {
-		bucketInfo := map[string]interface{}{
+		bucketInfo := map[string]any{
 			"name":      bucket.Name,
 			"versioned": bucket.Versioned,
 			"public":    bucket.Public,
@@ -139,7 +139,7 @@ func (m *Manager) getStorageBuckets(ctx context.Context, request mcp.CallToolReq
 		if usages, exists := bucketUsageByService[bucket.Name]; exists {
 			bucketInfo["service_usage"] = usages
 		} else {
-			bucketInfo["service_usage"] = []map[string]interface{}{}
+			bucketInfo["service_usage"] = []map[string]any{}
 		}
 
 		buckets = append(buckets, bucketInfo)

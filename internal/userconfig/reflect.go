@@ -69,7 +69,7 @@ func newKeyDesc(f *reflect.StructField) (key string, desc keyDesc, err error) {
 	// Do we have a oneof?
 	if tag := f.Tag.Get("oneof"); tag != "" {
 		var oneof []any
-		for _, part := range strings.Split(tag, ",") {
+		for part := range strings.SplitSeq(tag, ",") {
 			val, err := kind.parseValue(part)
 			if err != nil {
 				return "", keyDesc{}, errors.Wrap(err, "parse oneof value")
@@ -88,12 +88,10 @@ func newKeyDesc(f *reflect.StructField) (key string, desc keyDesc, err error) {
 }
 
 var descs = (func() map[string]keyDesc {
-	var cfg Config
-	t := reflect.TypeOf(cfg)
+	t := reflect.TypeFor[Config]()
 	descs := make(map[string]keyDesc, t.NumField())
 
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
+	for f := range t.Fields() {
 		key, desc, err := newKeyDesc(&f)
 		if err != nil {
 			panic(fmt.Sprintf("invalid userconfig definition for field %s: %v", f.Name, err))

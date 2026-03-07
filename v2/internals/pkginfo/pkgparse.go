@@ -7,6 +7,7 @@ import (
 	goparser "go/parser"
 	"go/token"
 	"io/fs"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -83,9 +84,7 @@ func (l *Loader) processPkg(s loadPkgSpec, pkgs []*ast.Package, files []*File) *
 	for _, f := range files {
 		f.Pkg = pkg
 		// Fill in imports.
-		for importPath, pointer := range f.Imports {
-			pkg.Imports[importPath] = pointer
-		}
+		maps.Copy(pkg.Imports, f.Imports)
 
 		// Fill in package docs.
 		if pkg.Doc == "" && !f.TestFile && f.initialAST.Doc != nil {

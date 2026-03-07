@@ -156,7 +156,7 @@ func (g *Generator) newOperationForEncoding(rpc *meta.RPC, method string, reqEnc
 				In:              openapi3.ParameterInPath,
 				Description:     "",
 				Style:           openapi3.SerializationSimple,
-				Explode:         ptr(false),
+				Explode:         new(false),
 				AllowEmptyValue: true,
 				AllowReserved:   false,
 				Deprecated:      false,
@@ -177,7 +177,7 @@ func (g *Generator) newOperationForEncoding(rpc *meta.RPC, method string, reqEnc
 				In:              openapi3.ParameterInHeader,
 				Description:     markdownDoc(param.Doc),
 				Style:           openapi3.SerializationSimple,
-				Explode:         ptr(true),
+				Explode:         new(true),
 				AllowEmptyValue: true,
 				AllowReserved:   false,
 				Deprecated:      false,
@@ -198,7 +198,7 @@ func (g *Generator) newOperationForEncoding(rpc *meta.RPC, method string, reqEnc
 				In:              openapi3.ParameterInQuery,
 				Description:     markdownDoc(param.Doc),
 				Style:           openapi3.SerializationForm,
-				Explode:         ptr(true),
+				Explode:         new(true),
 				AllowEmptyValue: true,
 				AllowReserved:   false,
 				Deprecated:      false,
@@ -227,7 +227,7 @@ func (g *Generator) newOperationForEncoding(rpc *meta.RPC, method string, reqEnc
 		resp := &openapi3.Response{
 			Headers:     make(openapi3.Headers),
 			Links:       nil,
-			Description: ptr("Success response"),
+			Description: new("Success response"),
 		}
 
 		if respEnc != nil {
@@ -236,7 +236,7 @@ func (g *Generator) newOperationForEncoding(rpc *meta.RPC, method string, reqEnc
 					Value: &openapi3.Header{Parameter: openapi3.Parameter{
 						Description:     markdownDoc(param.Doc),
 						Style:           openapi3.SerializationSimple,
-						Explode:         ptr(true),
+						Explode:         new(true),
 						AllowEmptyValue: true,
 						AllowReserved:   false,
 						Deprecated:      false,
@@ -283,9 +283,9 @@ func rpcPath(rpc *meta.RPC) string {
 
 func splitDoc(doc string) (plaintextSummary, markdownDescription string) {
 	firstLine, remaining := doc, ""
-	if idx := strings.Index(doc, "\n"); idx >= 0 {
-		firstLine = doc[:idx]
-		remaining = doc[idx+1:]
+	if before, after, ok := strings.Cut(doc, "\n"); ok {
+		firstLine = before
+		remaining = after
 	}
 
 	return plaintextDoc(firstLine), markdownDoc(remaining)
@@ -305,8 +305,9 @@ func markdownDoc(doc string) string {
 	return string(pr.Markdown(d))
 }
 
+//go:fix inline
 func ptr[T any](t T) *T {
-	return &t
+	return new(t)
 }
 
 func newSpec(appSlug string) *openapi3.T {
@@ -380,7 +381,7 @@ func newSpec(appSlug string) *openapi3.T {
 					},
 				},
 			},
-			Description: ptr("Error response"),
+			Description: new("Error response"),
 		},
 	}
 

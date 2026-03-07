@@ -121,7 +121,7 @@ type Config struct {
 	WireGuard struct {
 		PublicKey  string `json:"pub,omitempty"`
 		PrivateKey string `json:"priv,omitempty"`
-	} `json:"wg,omitempty"`
+	} `json:"wg"`
 }
 
 // Write persists the configuration for the user.

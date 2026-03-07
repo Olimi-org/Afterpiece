@@ -2,10 +2,10 @@ package gcsemu
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
-	"fmt"
 
 	"github.com/google/btree"
 	"google.golang.org/api/storage/v1"

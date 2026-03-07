@@ -3,6 +3,7 @@ package schema
 import (
 	"go/ast"
 	"go/types"
+	"strings"
 	"sync"
 
 	"github.com/fatih/structtag"
@@ -230,18 +231,19 @@ func (t InterfaceType) ASTExpr() ast.Expr    { return t.AST }
 func (t TypeParamRefType) ASTExpr() ast.Expr { return t.AST }
 
 func (t NamedType) String() string {
-	name := t.DeclInfo.Name
+	var name strings.Builder
+	name.WriteString(t.DeclInfo.Name)
 	if t.TypeArgs != nil {
-		name += "["
+		name.WriteString("[")
 		for i, arg := range t.TypeArgs {
 			if i > 0 {
-				name += ", "
+				name.WriteString(", ")
 			}
-			name += arg.String()
+			name.WriteString(arg.String())
 		}
-		name += "]"
+		name.WriteString("]")
 	}
-	return name
+	return name.String()
 }
 func (t StructType) String() string       { return "struct" }
 func (t MapType) String() string          { return "map[" + t.Key.String() + "]" + t.Value.String() }

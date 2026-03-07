@@ -182,7 +182,7 @@ func (s *Server) DBProxy(params *daemonpb.DBProxyRequest, stream daemonpb.Daemon
 	defer log.Info().Msg("dbproxy: proxy closed")
 	err = stream.Send(&daemonpb.CommandMessage{Msg: &daemonpb.CommandMessage_Output{
 		Output: &daemonpb.CommandOutput{
-			Stdout: []byte(fmt.Sprintf("dbproxy: listening for TCP connections on localhost:%d\n", port)),
+			Stdout: fmt.Appendf(nil, "dbproxy: listening for TCP connections on localhost:%d\n", port),
 		},
 	}})
 	if err != nil {

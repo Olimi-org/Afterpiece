@@ -454,7 +454,7 @@ var builtinTypes = map[string]BuiltinKind{
 // to handle pointer/non-pointer as well as methods on generic types.
 func (p *Parser) resolveReceiverIdent(expr ast.Expr) *ast.Ident {
 	orig := expr // keep track of original for error messages
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		switch x := expr.(type) {
 		case *ast.Ident:
 			// We're done

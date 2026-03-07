@@ -27,12 +27,12 @@ func (m *Manager) getMetrics(ctx context.Context, request mcp.CallToolRequest) (
 	}
 
 	// Group metrics by service for better organization
-	metricsByService := make(map[string][]map[string]interface{})
-	globalMetrics := make([]map[string]interface{}, 0)
+	metricsByService := make(map[string][]map[string]any)
+	globalMetrics := make([]map[string]any, 0)
 
 	// Process all metrics
 	for _, metric := range md.Metrics {
-		metricInfo := map[string]interface{}{
+		metricInfo := map[string]any{
 			"name":       metric.Name,
 			"kind":       metric.Kind.String(),
 			"value_type": metric.ValueType.String(),
@@ -41,9 +41,9 @@ func (m *Manager) getMetrics(ctx context.Context, request mcp.CallToolRequest) (
 
 		// Add labels if any
 		if len(metric.Labels) > 0 {
-			labels := make([]map[string]interface{}, 0, len(metric.Labels))
+			labels := make([]map[string]any, 0, len(metric.Labels))
 			for _, label := range metric.Labels {
-				labelInfo := map[string]interface{}{
+				labelInfo := map[string]any{
 					"key":  label.Key,
 					"type": label.Type.String(),
 					"doc":  label.Doc,
@@ -57,7 +57,7 @@ func (m *Manager) getMetrics(ctx context.Context, request mcp.CallToolRequest) (
 		if metric.ServiceName != nil {
 			serviceName := *metric.ServiceName
 			if _, exists := metricsByService[serviceName]; !exists {
-				metricsByService[serviceName] = make([]map[string]interface{}, 0)
+				metricsByService[serviceName] = make([]map[string]any, 0)
 			}
 			metricsByService[serviceName] = append(metricsByService[serviceName], metricInfo)
 		} else {
@@ -66,13 +66,13 @@ func (m *Manager) getMetrics(ctx context.Context, request mcp.CallToolRequest) (
 	}
 
 	// Build the final result
-	result := map[string]interface{}{
-		"services": make(map[string]interface{}),
+	result := map[string]any{
+		"services": make(map[string]any),
 		"global":   globalMetrics,
 	}
 
 	// Add each service's metrics
-	servicesMap := result["services"].(map[string]interface{})
+	servicesMap := result["services"].(map[string]any)
 	for serviceName, metrics := range metricsByService {
 		// Sort metrics by name within each service
 		sort.Slice(metrics, func(i, j int) bool {
@@ -87,7 +87,7 @@ func (m *Manager) getMetrics(ctx context.Context, request mcp.CallToolRequest) (
 	})
 
 	// Add summary counts
-	summary := map[string]interface{}{
+	summary := map[string]any{
 		"total_metrics":      len(md.Metrics),
 		"global_metrics":     len(globalMetrics),
 		"service_count":      len(metricsByService),

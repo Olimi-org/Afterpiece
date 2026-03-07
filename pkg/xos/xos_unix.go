@@ -1,5 +1,4 @@
 //go:build !windows
-// +build !windows
 
 // Package xos provides cross-platform helper functions.
 package xos
@@ -18,11 +17,11 @@ func CreateNewProcessGroup() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{Setpgid: true}
 }
 
-func SocketStat(path string) (interface{}, error) {
+func SocketStat(path string) (any, error) {
 	return os.Stat(path)
 }
 
-func SameSocket(a, b interface{}) bool {
+func SameSocket(a, b any) bool {
 	ai := a.(os.FileInfo)
 	bi := b.(os.FileInfo)
 	return os.SameFile(ai, bi)

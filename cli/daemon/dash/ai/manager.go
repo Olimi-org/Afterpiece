@@ -24,7 +24,7 @@ func (m *Manager) DefineEndpoints(ctx context.Context, appSlug string, sessionID
 	svcs := fns.Map(proposed, Service.GetName)
 	return startAITask[struct {
 		Message *AIStreamMessage `graphql:"result: defineEndpoints(appSlug: $appSlug, sessionID: $sessionID, prompt: $prompt, current: $current, proposedDesign: $proposedDesign, existingTypes: $existingTypes)"`
-	}](ctx, map[string]interface{}{
+	}](ctx, map[string]any{
 		"appSlug":        appSlug,
 		"prompt":         prompt,
 		"current":        parseServicesFromMetadata(md, svcs...),
@@ -37,7 +37,7 @@ func (m *Manager) DefineEndpoints(ctx context.Context, appSlug string, sessionID
 func (m *Manager) ProposeSystemDesign(ctx context.Context, appSlug, prompt string, md *meta.Data, notifier AINotifier) (*AITask, error) {
 	return startAITask[struct {
 		Message *AIStreamMessage `graphql:"result: proposeSystemDesign(appSlug: $appSlug, prompt: $prompt, current: $current)"`
-	}](ctx, map[string]interface{}{
+	}](ctx, map[string]any{
 		"appSlug": appSlug,
 		"prompt":  prompt,
 		"current": parseServicesFromMetadata(md),
@@ -47,7 +47,7 @@ func (m *Manager) ProposeSystemDesign(ctx context.Context, appSlug, prompt strin
 func (m *Manager) ModifySystemDesign(ctx context.Context, appSlug string, sessionID AISessionID, originalPrompt string, proposed []Service, newPrompt string, md *meta.Data, notifier AINotifier) (*AITask, error) {
 	return startAITask[struct {
 		Message *AIStreamMessage `graphql:"result: modifySystemDesign(appSlug: $appSlug, sessionID: $sessionID, originalPrompt: $originalPrompt, proposedDesign: $proposedDesign, newPrompt: $newPrompt, current: $current)"`
-	}](ctx, map[string]interface{}{
+	}](ctx, map[string]any{
 		"appSlug":        appSlug,
 		"originalPrompt": originalPrompt,
 		"proposedDesign": fns.Map(proposed, Service.GraphQL),

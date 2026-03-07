@@ -10,11 +10,11 @@ import (
 // having uncommitted files. This will happen most likely because no supported VCS system can be found.
 //
 // Supported VCS systems include;
-//  - Hg
-//  - Git
-//  - Svn
-//  - Bzr
-//  - Fossil
+//   - Hg
+//   - Git
+//   - Svn
+//   - Bzr
+//   - Fossil
 func GetRevision(appRoot string) Status {
 	appRoot, cmd, err := fromDir(appRoot, "", false)
 	if err != nil {

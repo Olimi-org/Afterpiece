@@ -67,6 +67,6 @@ func (w *indentWriter) WriteString(s string) {
 	}
 }
 
-func (w *indentWriter) WriteStringf(s string, args ...interface{}) {
+func (w *indentWriter) WriteStringf(s string, args ...any) {
 	w.WriteString(fmt.Sprintf(s, args...))
 }

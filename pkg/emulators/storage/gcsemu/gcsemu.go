@@ -34,7 +34,7 @@ type Options struct {
 	Verbose bool
 
 	// Optional log function. `err` will be `nil` for informational/debug messages.
-	Log func(err error, fmt string, args ...interface{})
+	Log func(err error, fmt string, args ...any)
 }
 
 // GcsEmu is a Google Cloud Storage emulator for development.
@@ -47,7 +47,7 @@ type GcsEmu struct {
 	idCounter int32
 
 	verbose bool
-	log     func(err error, fmt string, args ...interface{})
+	log     func(err error, fmt string, args ...any)
 }
 
 // NewGcsEmu creates a new Google Cloud Storage emulator.
@@ -56,7 +56,7 @@ func NewGcsEmu(opts Options) *GcsEmu {
 		opts.Store = NewMemStore()
 	}
 	if opts.Log == nil {
-		opts.Log = func(_ error, _ string, _ ...interface{}) {}
+		opts.Log = func(_ error, _ string, _ ...any) {}
 	}
 	return &GcsEmu{
 		store:     opts.Store,
@@ -323,7 +323,7 @@ func (g *GcsEmu) handleGcsMediaRequest(baseUrl HttpBaseUrl, w http.ResponseWrite
 }
 
 func (g *GcsEmu) handleGcsMetadataRequest(baseUrl HttpBaseUrl, w http.ResponseWriter, bucket string, filename string) {
-	var obj interface{}
+	var obj any
 	var err error
 	if filename == "" {
 		var b *storage.Bucket

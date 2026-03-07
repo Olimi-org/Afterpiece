@@ -121,7 +121,7 @@ func Parse(log *zerolog.Logger, traceID ID, data []byte, version trace.Version, 
 		reqMap:       make(map[uint64]*tracepb.Request),
 		txMap:        make(map[uint64]*tracepb.DBTransaction),
 		queryMap:     make(map[uint64]*tracepb.DBQuery),
-		callMap:      make(map[uint64]interface{}),
+		callMap:      make(map[uint64]any),
 		goMap:        make(map[goKey]*tracepb.Goroutine),
 		httpMap:      make(map[uint64]*tracepb.HTTPCall),
 		publishMap:   make(map[uint64]*tracepb.PubsubMsgPublished),
@@ -153,7 +153,7 @@ type traceParser struct {
 	reqMap       map[uint64]*tracepb.Request
 	txMap        map[uint64]*tracepb.DBTransaction
 	queryMap     map[uint64]*tracepb.DBQuery
-	callMap      map[uint64]interface{} // *RPCCall or *AuthCall
+	callMap      map[uint64]any // *RPCCall or *AuthCall
 	httpMap      map[uint64]*tracepb.HTTPCall
 	goMap        map[goKey]*tracepb.Goroutine
 	publishMap   map[uint64]*tracepb.PubsubMsgPublished
@@ -374,7 +374,7 @@ func (tp *traceParser) requestStart(ts uint64) error {
 
 			numParams := tp.UVarint()
 			req.PathParams = make([]string, numParams)
-			for i := uint64(0); i < numParams; i++ {
+			for i := range numParams {
 				req.PathParams[i] = tp.String()
 			}
 
@@ -840,7 +840,7 @@ func (tp *traceParser) httpEvent() (*tracepb.HTTPTraceEvent, error) {
 			Err: tp.ByteString(),
 		}
 		addrs := int(tp.UVarint())
-		for j := 0; j < addrs; j++ {
+		for range addrs {
 			data.Addrs = append(data.Addrs, &tracepb.DNSAddr{
 				Ip: tp.ByteString(),
 			})
@@ -947,7 +947,7 @@ func (tp *traceParser) logMessage(ts uint64) error {
 		}
 	}
 
-	for i := 0; i < fields; i++ {
+	for i := range fields {
 		f, err := tp.logField()
 		if err != nil {
 			return eerror.Wrap(err, "trace_parser", "error parsing field", map[string]any{"field#": i})
@@ -1170,7 +1170,7 @@ func (tp *traceParser) stack(filterMode stackFilter) *tracepb.StackTrace {
 	}
 
 	diffs := make([]int64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		diff := tp.Varint()
 		diffs[i] = diff
 	}
@@ -1189,7 +1189,7 @@ func (tp *traceParser) stack(filterMode stackFilter) *tracepb.StackTrace {
 
 	prev := int64(0)
 	pcs := make([]uint64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		x := prev + diffs[i]
 		prev = x
 		pcs[i] = uint64(x) + sym.BaseOffset
@@ -1221,7 +1221,7 @@ func (tp *traceParser) formattedStack() *tracepb.StackTrace {
 	}
 
 	tr.Frames = make([]*tracepb.StackFrame, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		tr.Frames = append(tr.Frames, &tracepb.StackFrame{
 			Filename: tp.String(),
 			Line:     int32(tp.UVarint()),
@@ -1257,7 +1257,7 @@ func (tp *traceParser) parseTraceID() *tracepb.TraceID {
 func (tp *traceParser) parseHTTPHeaders() map[string]string {
 	numHeaders := tp.UVarint()
 	h := make(map[string]string, numHeaders)
-	for i := uint64(0); i < numHeaders; i++ {
+	for range numHeaders {
 		h[tp.String()] = tp.String()
 	}
 	return h

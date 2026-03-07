@@ -19,7 +19,7 @@ func TestFileStore(t *testing.T) {
 	gcsEmu := NewGcsEmu(Options{
 		Store:   NewFileStore(gcsDir),
 		Verbose: true,
-		Log: func(err error, fmt string, args ...interface{}) {
+		Log: func(err error, fmt string, args ...any) {
 			t.Helper()
 			if err != nil {
 				fmt = "ERROR: " + fmt + ": %s"
@@ -53,7 +53,6 @@ func TestFileStore(t *testing.T) {
 
 	t.Parallel()
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tc.f(t, bh)

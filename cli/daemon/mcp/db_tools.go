@@ -67,7 +67,7 @@ func (m *Manager) getDatabases(ctx context.Context, request mcp.CallToolRequest)
 	// Parse databases parameter if provided
 	var filterDBs map[string]bool
 	if dbsParam, ok := request.Params.Arguments["databases"]; ok && dbsParam != nil {
-		dbsArray, ok := dbsParam.([]interface{})
+		dbsArray, ok := dbsParam.([]any)
 		if ok && len(dbsArray) > 0 {
 			filterDBs = make(map[string]bool)
 			for _, db := range dbsArray {
@@ -79,14 +79,14 @@ func (m *Manager) getDatabases(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	// Build database list
-	databases := make([]map[string]interface{}, 0)
+	databases := make([]map[string]any, 0)
 	for _, db := range md.SqlDatabases {
 		// Skip if we have a filter and this database isn't in it
 		if filterDBs != nil && !filterDBs[db.Name] {
 			continue
 		}
 
-		dbInfo := map[string]interface{}{
+		dbInfo := map[string]any{
 			"name": db.Name,
 			"doc":  db.Doc,
 		}
@@ -113,8 +113,8 @@ func (m *Manager) getDatabases(ctx context.Context, request mcp.CallToolRequest)
 	return mcp.NewToolResultText(string(jsonData)), nil
 }
 
-func (m *Manager) getTablesForDatabase(ctx context.Context, dbName string) ([]map[string]interface{}, error) {
-	var tables []map[string]interface{}
+func (m *Manager) getTablesForDatabase(ctx context.Context, dbName string) ([]map[string]any, error) {
+	var tables []map[string]any
 
 	err := m.withConn(ctx, dbName, func(db *sql.DB) error {
 		// Query to get tables and their columns from PostgreSQL
@@ -141,7 +141,7 @@ func (m *Manager) getTablesForDatabase(ctx context.Context, dbName string) ([]ma
 		}
 		defer rows.Close()
 
-		tables = []map[string]interface{}{}
+		tables = []map[string]any{}
 
 		for rows.Next() {
 			var tableName string
@@ -161,7 +161,7 @@ func (m *Manager) getTablesForDatabase(ctx context.Context, dbName string) ([]ma
 				}
 			}
 
-			tables = append(tables, map[string]interface{}{
+			tables = append(tables, map[string]any{
 				"table_name": tableName,
 				"columns":    columnInfo,
 			})
@@ -226,15 +226,15 @@ func (m *Manager) withConn(ctx context.Context, dbName string, fn func(db *sql.D
 }
 
 func (m *Manager) runQuery(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	queriesParam, ok := request.Params.Arguments["queries"].([]interface{})
+	queriesParam, ok := request.Params.Arguments["queries"].([]any)
 	if !ok || len(queriesParam) == 0 {
 		return nil, fmt.Errorf("missing or invalid 'queries' parameter")
 	}
 
-	results := make(map[string][]map[string]interface{})
+	results := make(map[string][]map[string]any)
 
 	for _, queryObj := range queriesParam {
-		queryMap, ok := queryObj.(map[string]interface{})
+		queryMap, ok := queryObj.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -250,7 +250,7 @@ func (m *Manager) runQuery(ctx context.Context, request mcp.CallToolRequest) (*m
 		}
 
 		// Execute the query for this database
-		var queryResults []map[string]interface{}
+		var queryResults []map[string]any
 		err := m.withConn(ctx, dbName, func(db *sql.DB) error {
 			rows, err := db.QueryContext(ctx, sqlQuery)
 			if err != nil {
@@ -264,10 +264,10 @@ func (m *Manager) runQuery(ctx context.Context, request mcp.CallToolRequest) (*m
 				return fmt.Errorf("failed to get columns: %w", err)
 			}
 
-			queryResults = make([]map[string]interface{}, 0)
+			queryResults = make([]map[string]any, 0)
 			for rows.Next() {
-				values := make([]interface{}, len(columns))
-				valuePtrs := make([]interface{}, len(columns))
+				values := make([]any, len(columns))
+				valuePtrs := make([]any, len(columns))
 				for i := range values {
 					valuePtrs[i] = &values[i]
 				}
@@ -276,7 +276,7 @@ func (m *Manager) runQuery(ctx context.Context, request mcp.CallToolRequest) (*m
 					return fmt.Errorf("failed to scan row: %w", err)
 				}
 
-				row := make(map[string]interface{})
+				row := make(map[string]any)
 				for i, col := range columns {
 					row[col] = values[i]
 				}
@@ -293,7 +293,7 @@ func (m *Manager) runQuery(ctx context.Context, request mcp.CallToolRequest) (*m
 		// Store results for this query
 		key := fmt.Sprintf("%s: %s", dbName, sqlQuery)
 		if err != nil {
-			results[key] = []map[string]interface{}{
+			results[key] = []map[string]any{
 				{"error": err.Error()},
 			}
 		} else {

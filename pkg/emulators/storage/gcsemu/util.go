@@ -11,7 +11,7 @@ import (
 )
 
 // jsonRespond json-encodes rsp and writes it to w.  If an error occurs, then it is logged and a 500 error is written to w.
-func (g *GcsEmu) jsonRespond(w http.ResponseWriter, rsp interface{}) {
+func (g *GcsEmu) jsonRespond(w http.ResponseWriter, rsp any) {
 	// do NOT write a http status since OK will be the default and this allows the caller to use their own if they want
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
@@ -63,7 +63,7 @@ func (g *GcsEmu) gapiError(w http.ResponseWriter, code int, message string) {
 }
 
 // mustJson serializes the given value to json, panicking on failure
-func mustJson(val interface{}) []byte {
+func mustJson(val any) []byte {
 	if val == nil {
 		return []byte("null")
 	}

@@ -234,7 +234,6 @@ func (c *Cluster) Setup(ctx context.Context, appRoot string, md *meta.Data) erro
 	c.mu.Lock()
 
 	for _, dbMeta := range md.SqlDatabases {
-		dbMeta := dbMeta
 		db, ok := c.dbs[dbMeta.Name]
 		if c.isExternal(dbMeta.Name) {
 			continue
@@ -300,7 +299,6 @@ func (c *Cluster) Recreate(ctx context.Context, appRoot string, databaseNames []
 	g.SetLimit(50)
 	c.mu.Lock()
 	for _, dbMeta := range md.SqlDatabases {
-		dbMeta := dbMeta
 		if filter == nil || filter[dbMeta.Name] {
 			db, ok := c.dbs[dbMeta.Name]
 			if c.isExternal(dbMeta.Name) {

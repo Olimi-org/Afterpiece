@@ -41,8 +41,8 @@ var (
 // the display, while still presenting them in the source code in indented
 // form.
 func Dedent(text string) string {
-	if strings.HasPrefix(text, "\n") {
-		text = strings.TrimPrefix(text, "\n")
+	if after, ok := strings.CutPrefix(text, "\n"); ok {
+		text = after
 	}
 
 	var margin string
@@ -79,8 +79,8 @@ func Dedent(text string) string {
 
 // Bytes is like Dedent but for []bytes.
 func Bytes(text []byte) []byte {
-	if bytes.HasPrefix(text, []byte("\n")) {
-		text = bytes.TrimPrefix(text, []byte("\n"))
+	if after, ok := bytes.CutPrefix(text, []byte("\n")); ok {
+		text = after
 	}
 
 	var margin []byte

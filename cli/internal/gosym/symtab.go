@@ -43,10 +43,7 @@ func (s *Sym) PackageName() string {
 		return ""
 	}
 
-	pathend := strings.LastIndex(name, "/")
-	if pathend < 0 {
-		pathend = 0
-	}
+	pathend := max(strings.LastIndex(name, "/"), 0)
 
 	if i := strings.Index(name[pathend:], "."); i != -1 {
 		return name[:pathend+i]
@@ -57,10 +54,7 @@ func (s *Sym) PackageName() string {
 // ReceiverName returns the receiver type name of this symbol,
 // or the empty string if there is none.
 func (s *Sym) ReceiverName() string {
-	pathend := strings.LastIndex(s.Name, "/")
-	if pathend < 0 {
-		pathend = 0
-	}
+	pathend := max(strings.LastIndex(s.Name, "/"), 0)
 	l := strings.Index(s.Name[pathend:], ".")
 	r := strings.LastIndex(s.Name[pathend:], ".")
 	if l == -1 || r == -1 || l == r {
@@ -710,7 +704,7 @@ func (e *UnknownLineError) Error() string {
 type DecodingError struct {
 	off int
 	msg string
-	val interface{}
+	val any
 }
 
 func (e *DecodingError) Error() string {

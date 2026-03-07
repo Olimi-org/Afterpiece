@@ -193,7 +193,7 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 
 	// Get the list of services to retrieve endpoints for
 	var serviceNames []string
-	if services, ok := request.Params.Arguments["services"].([]interface{}); ok {
+	if services, ok := request.Params.Arguments["services"].([]any); ok {
 		for _, svc := range services {
 			if svcName, ok := svc.(string); ok && svcName != "" {
 				serviceNames = append(serviceNames, svcName)
@@ -221,7 +221,7 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 	// Only process endpoint filters if we're including endpoints
 	if includeEndpoints {
 		// Get the list of endpoint names to filter by
-		if endpoints, ok := request.Params.Arguments["endpoints"].([]interface{}); ok {
+		if endpoints, ok := request.Params.Arguments["endpoints"].([]any); ok {
 			for _, ep := range endpoints {
 				if epName, ok := ep.(string); ok && epName != "" {
 					endpointNames = append(endpointNames, epName)
@@ -256,7 +256,7 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	// Create a map to store services with their endpoints
-	serviceMap := make(map[string]map[string]interface{})
+	serviceMap := make(map[string]map[string]any)
 
 	// Process each requested service
 	for _, serviceName := range serviceNames {
@@ -275,7 +275,7 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 		}
 
 		// Initialize service data
-		serviceData := map[string]interface{}{}
+		serviceData := map[string]any{}
 
 		// Add service details if requested
 		if includeServiceDetails {
@@ -289,7 +289,7 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 		// Process endpoints if requested
 		if includeEndpoints {
 			// Initialize an empty array for this service's endpoints
-			endpoints := make([]map[string]interface{}, 0)
+			endpoints := make([]map[string]any, 0)
 
 			// Process all RPCs for this service
 			for _, rpc := range targetService.Rpcs {
@@ -298,7 +298,7 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 					continue
 				}
 
-				endpoint := map[string]interface{}{
+				endpoint := map[string]any{
 					"name":         rpc.Name,
 					"access_type":  rpc.AccessType.String(),
 					"http_methods": rpc.HttpMethods,
@@ -320,7 +320,7 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 
 				// Include schema information if requested
 				if includeSchemas {
-					schemas := map[string]interface{}{}
+					schemas := map[string]any{}
 
 					// For request and response schemas
 					if rpc.RequestSchema != nil {
@@ -356,9 +356,9 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	// Create the result object with services and summary
-	result := map[string]interface{}{
+	result := map[string]any{
 		"services": serviceMap,
-		"summary": map[string]interface{}{
+		"summary": map[string]any{
 			"total_services": len(serviceMap),
 		},
 	}
@@ -367,23 +367,23 @@ func (m *Manager) getEndpoints(ctx context.Context, request mcp.CallToolRequest)
 	if includeEndpoints {
 		totalEndpoints := 0
 		for _, serviceData := range serviceMap {
-			if endpoints, ok := serviceData["endpoints"].([]map[string]interface{}); ok {
+			if endpoints, ok := serviceData["endpoints"].([]map[string]any); ok {
 				totalEndpoints += len(endpoints)
 			}
 		}
-		result["summary"].(map[string]interface{})["total_endpoints"] = totalEndpoints
+		result["summary"].(map[string]any)["total_endpoints"] = totalEndpoints
 	}
 
 	// Add filter information to summary if filters were applied
 	if len(serviceNames) < len(md.Svcs) || (includeEndpoints && hasEndpointFilter) {
-		filters := map[string]interface{}{}
+		filters := map[string]any{}
 		if len(serviceNames) < len(md.Svcs) {
 			filters["services"] = serviceNames
 		}
 		if includeEndpoints && hasEndpointFilter {
 			filters["endpoints"] = endpointNames
 		}
-		result["summary"].(map[string]interface{})["filters_applied"] = filters
+		result["summary"].(map[string]any)["filters_applied"] = filters
 	}
 
 	jsonData, err := json.Marshal(result)
@@ -406,7 +406,7 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 	}
 
 	// Find middleware definition locations from trace nodes
-	middlewareDefLocations := make(map[string]map[string]interface{})
+	middlewareDefLocations := make(map[string]map[string]any)
 
 	// Scan through all packages to find trace nodes related to middleware
 	for _, pkg := range md.Pkgs {
@@ -419,7 +419,7 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 				// Use package path + name as a unique identifier
 				middlewareID := fmt.Sprintf("%s/%s", middlewareDef.PkgRelPath, middlewareName)
 
-				middlewareDefLocations[middlewareID] = map[string]interface{}{
+				middlewareDefLocations[middlewareID] = map[string]any{
 					"filepath":     node.Filepath,
 					"line_start":   node.SrcLineStart,
 					"line_end":     node.SrcLineEnd,
@@ -432,19 +432,19 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 	}
 
 	// Group middleware by type (global vs service-specific)
-	globalMiddleware := make([]map[string]interface{}, 0)
-	serviceMiddleware := make(map[string][]map[string]interface{})
+	globalMiddleware := make([]map[string]any, 0)
+	serviceMiddleware := make(map[string][]map[string]any)
 
 	// Process all middleware
 	for _, middleware := range md.Middleware {
-		middlewareInfo := map[string]interface{}{
+		middlewareInfo := map[string]any{
 			"doc":    middleware.Doc,
 			"global": middleware.Global,
 		}
 
 		// Add qualified name information if available
 		if middleware.Name != nil {
-			name := map[string]interface{}{
+			name := map[string]any{
 				"package": middleware.Name.Pkg,
 				"name":    middleware.Name.Name,
 			}
@@ -453,7 +453,7 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 			// Add definition location if available
 			middlewareID := fmt.Sprintf("%s/%s", middleware.Name.Pkg, middleware.Name.Name)
 			if location, exists := middlewareDefLocations[middlewareID]; exists {
-				middlewareInfo["definition"] = map[string]interface{}{
+				middlewareInfo["definition"] = map[string]any{
 					"filepath":     location["filepath"],
 					"line_start":   location["line_start"],
 					"line_end":     location["line_end"],
@@ -465,9 +465,9 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 
 		// Add target information if available
 		if len(middleware.Target) > 0 {
-			targets := make([]map[string]interface{}, 0, len(middleware.Target))
+			targets := make([]map[string]any, 0, len(middleware.Target))
 			for _, target := range middleware.Target {
-				targetInfo := map[string]interface{}{
+				targetInfo := map[string]any{
 					"type":  target.Type.String(),
 					"value": target.Value,
 				}
@@ -482,17 +482,17 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 		} else if middleware.ServiceName != nil {
 			serviceName := *middleware.ServiceName
 			if _, exists := serviceMiddleware[serviceName]; !exists {
-				serviceMiddleware[serviceName] = make([]map[string]interface{}, 0)
+				serviceMiddleware[serviceName] = make([]map[string]any, 0)
 			}
 			serviceMiddleware[serviceName] = append(serviceMiddleware[serviceName], middlewareInfo)
 		}
 	}
 
 	// Build the final result
-	result := map[string]interface{}{
+	result := map[string]any{
 		"global":   globalMiddleware,
 		"services": serviceMiddleware,
-		"summary": map[string]interface{}{
+		"summary": map[string]any{
 			"total_middleware":   len(md.Middleware),
 			"global_middleware":  len(globalMiddleware),
 			"service_middleware": make(map[string]int),
@@ -501,7 +501,7 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 	}
 
 	// Add counts by service
-	summary := result["summary"].(map[string]interface{})
+	summary := result["summary"].(map[string]any)
 	for service, middleware := range serviceMiddleware {
 		summary["service_middleware"].(map[string]int)[service] = len(middleware)
 	}
@@ -510,10 +510,10 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 	sort.Slice(globalMiddleware, func(i, j int) bool {
 		nameI := ""
 		nameJ := ""
-		if name, ok := globalMiddleware[i]["name"].(map[string]interface{}); ok {
+		if name, ok := globalMiddleware[i]["name"].(map[string]any); ok {
 			nameI = name["name"].(string)
 		}
-		if name, ok := globalMiddleware[j]["name"].(map[string]interface{}); ok {
+		if name, ok := globalMiddleware[j]["name"].(map[string]any); ok {
 			nameJ = name["name"].(string)
 		}
 		return nameI < nameJ
@@ -524,10 +524,10 @@ func (m *Manager) getMiddleware(ctx context.Context, request mcp.CallToolRequest
 		sort.Slice(middleware, func(i, j int) bool {
 			nameI := ""
 			nameJ := ""
-			if name, ok := middleware[i]["name"].(map[string]interface{}); ok {
+			if name, ok := middleware[i]["name"].(map[string]any); ok {
 				nameI = name["name"].(string)
 			}
-			if name, ok := middleware[j]["name"].(map[string]interface{}); ok {
+			if name, ok := middleware[j]["name"].(map[string]any); ok {
 				nameJ = name["name"].(string)
 			}
 			return nameI < nameJ
@@ -555,7 +555,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 	}
 
 	// Find auth handler definition locations from trace nodes
-	authHandlerDefLocations := make(map[string]map[string]interface{})
+	authHandlerDefLocations := make(map[string]map[string]any)
 
 	// Scan through all packages to find trace nodes related to auth handlers
 	for _, pkg := range md.Pkgs {
@@ -569,7 +569,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 				// Use service name + handler name as a unique identifier
 				handlerID := fmt.Sprintf("%s/%s", serviceName, handlerName)
 
-				authHandlerDefLocations[handlerID] = map[string]interface{}{
+				authHandlerDefLocations[handlerID] = map[string]any{
 					"filepath":     node.Filepath,
 					"line_start":   node.SrcLineStart,
 					"line_end":     node.SrcLineEnd,
@@ -582,11 +582,11 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 	}
 
 	// Process the main auth handler if it exists
-	var mainAuthHandler map[string]interface{}
+	var mainAuthHandler map[string]any
 	if md.AuthHandler != nil {
 		auth := md.AuthHandler
 
-		authData := map[string]interface{}{
+		authData := map[string]any{
 			"name":         auth.Name,
 			"doc":          auth.Doc,
 			"service_name": auth.ServiceName,
@@ -598,7 +598,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 		if auth.Params != nil {
 			paramsData, err := protojson.Marshal(auth.Params)
 			if err == nil {
-				var paramsJson interface{}
+				var paramsJson any
 				if err := json.Unmarshal(paramsData, &paramsJson); err == nil {
 					authData["params"] = paramsJson
 				}
@@ -608,7 +608,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 		if auth.AuthData != nil {
 			authDataTypeData, err := protojson.Marshal(auth.AuthData)
 			if err == nil {
-				var authDataJson interface{}
+				var authDataJson any
 				if err := json.Unmarshal(authDataTypeData, &authDataJson); err == nil {
 					authData["auth_data"] = authDataJson
 				}
@@ -618,7 +618,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 		// Add location information if available
 		handlerID := fmt.Sprintf("%s/%s", auth.ServiceName, auth.Name)
 		if location, exists := authHandlerDefLocations[handlerID]; exists {
-			authData["definition"] = map[string]interface{}{
+			authData["definition"] = map[string]any{
 				"filepath":     location["filepath"],
 				"line_start":   location["line_start"],
 				"line_end":     location["line_end"],
@@ -631,13 +631,13 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 	}
 
 	// Process gateway auth handlers
-	gatewayAuthHandlers := make(map[string]map[string]interface{})
+	gatewayAuthHandlers := make(map[string]map[string]any)
 
 	for _, gateway := range md.Gateways {
 		if gateway.Explicit != nil && gateway.Explicit.AuthHandler != nil {
 			auth := gateway.Explicit.AuthHandler
 
-			authData := map[string]interface{}{
+			authData := map[string]any{
 				"name":         auth.Name,
 				"doc":          auth.Doc,
 				"service_name": auth.ServiceName,
@@ -650,7 +650,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 			if auth.Params != nil {
 				paramsData, err := protojson.Marshal(auth.Params)
 				if err == nil {
-					var paramsJson interface{}
+					var paramsJson any
 					if err := json.Unmarshal(paramsData, &paramsJson); err == nil {
 						authData["params"] = paramsJson
 					}
@@ -660,7 +660,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 			if auth.AuthData != nil {
 				authDataTypeData, err := protojson.Marshal(auth.AuthData)
 				if err == nil {
-					var authDataJson interface{}
+					var authDataJson any
 					if err := json.Unmarshal(authDataTypeData, &authDataJson); err == nil {
 						authData["auth_data"] = authDataJson
 					}
@@ -670,7 +670,7 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 			// Add location information if available
 			handlerID := fmt.Sprintf("%s/%s", auth.ServiceName, auth.Name)
 			if location, exists := authHandlerDefLocations[handlerID]; exists {
-				authData["definition"] = map[string]interface{}{
+				authData["definition"] = map[string]any{
 					"filepath":     location["filepath"],
 					"line_start":   location["line_start"],
 					"line_end":     location["line_end"],
@@ -684,10 +684,10 @@ func (m *Manager) getAuthHandlers(ctx context.Context, request mcp.CallToolReque
 	}
 
 	// Build the final result
-	result := map[string]interface{}{
+	result := map[string]any{
 		"main_auth_handler":     mainAuthHandler,
 		"gateway_auth_handlers": gatewayAuthHandlers,
-		"summary": map[string]interface{}{
+		"summary": map[string]any{
 			"has_main_auth":      mainAuthHandler != nil,
 			"gateway_count":      len(md.Gateways),
 			"auth_gateway_count": len(gatewayAuthHandlers),

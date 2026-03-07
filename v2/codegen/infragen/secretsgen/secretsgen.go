@@ -23,9 +23,9 @@ func Gen(gen *codegen.Generator, svc option.Option[*app.Service], pkg *pkginfo.P
 			insertPos := file.AST().Name.End()
 			ln := gen.FS.Position(insertPos)
 
-			rw.Insert(insertPos, []byte(fmt.Sprintf("\nimport __encore_secrets %s;/*line :%d:%d*/",
+			rw.Insert(insertPos, fmt.Appendf(nil, "\nimport __encore_secrets %s;/*line :%d:%d*/",
 				strconv.Quote("encore.dev/appruntime/infrasdk/secrets"),
-				ln.Line, ln.Column)))
+				ln.Line, ln.Column))
 			addedImport[secret.File] = true
 		}
 

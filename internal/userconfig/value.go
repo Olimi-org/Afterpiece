@@ -2,6 +2,7 @@ package userconfig
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -77,10 +78,8 @@ func (t Type) validate(val any) error {
 		return errors.New("value cannot be nil")
 	}
 	if len(t.Oneof) > 0 {
-		for _, v := range t.Oneof {
-			if val == v {
-				return nil
-			}
+		if slices.Contains(t.Oneof, val) {
+			return nil
 		}
 
 		strVal := fmt.Sprintf("%v", val)

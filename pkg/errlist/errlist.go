@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"io"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"encr.dev/pkg/errinsrc"
@@ -104,10 +105,8 @@ func (l *List) Report(err error) {
 	// Skip adding this error if it's on the same line as another error
 	// we've already reported, since it's probably a spurious error caused
 	// by the first one.
-	for _, e := range l.List {
-		if errToAdd.OnSameLine(e) {
-			return
-		}
+	if slices.ContainsFunc(l.List, errToAdd.OnSameLine) {
+		return
 	}
 
 	l.List = append(l.List, errToAdd)
@@ -134,7 +133,7 @@ func (l *List) Add(pos token.Pos, msg string) {
 // Addf is equivalent to Add(pos, fmt.Sprintf(format, args...))
 //
 // Deprecated: use Report instead
-func (l *List) Addf(pos token.Pos, format string, args ...interface{}) {
+func (l *List) Addf(pos token.Pos, format string, args ...any) {
 	l.Add(pos, fmt.Sprintf(format, args...))
 }
 

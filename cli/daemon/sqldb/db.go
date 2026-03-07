@@ -239,7 +239,7 @@ func (db *DB) ensureRoles(ctx context.Context, cloudName string, roles ...Role) 
 		// We've observed race conditions in Postgres to grant access. Retry a few times.
 		{
 			var err error
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				_, err = adm.Exec(ctx, stmt)
 				if err == nil {
 					break
@@ -520,7 +520,7 @@ func (db *DB) connectSuperuser(ctx context.Context) (*pgx.Conn, error) {
 
 	// Wait for the connection to be established; this might take a little bit
 	// when we're racing with spinning up a Docker container.
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		var conn *pgx.Conn
 		conn, err = pgx.Connect(ctx, uri)
 		if err == nil {

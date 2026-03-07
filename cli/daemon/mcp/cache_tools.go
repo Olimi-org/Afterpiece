@@ -29,7 +29,7 @@ func (m *Manager) getCacheKeyspaces(ctx context.Context, request mcp.CallToolReq
 	}
 
 	// Find keyspace definition locations from trace nodes
-	keyspaceDefLocations := make(map[string]map[string]map[string]interface{})
+	keyspaceDefLocations := make(map[string]map[string]map[string]any)
 
 	// Scan through all packages to find trace nodes related to cache keyspaces
 	for _, pkg := range md.Pkgs {
@@ -42,11 +42,11 @@ func (m *Manager) getCacheKeyspaces(ctx context.Context, request mcp.CallToolReq
 
 				// Initialize maps if needed
 				if _, exists := keyspaceDefLocations[clusterName]; !exists {
-					keyspaceDefLocations[clusterName] = make(map[string]map[string]interface{})
+					keyspaceDefLocations[clusterName] = make(map[string]map[string]any)
 				}
 
 				if _, exists := keyspaceDefLocations[clusterName][keyspaceName]; !exists {
-					keyspaceDefLocations[clusterName][keyspaceName] = map[string]interface{}{
+					keyspaceDefLocations[clusterName][keyspaceName] = map[string]any{
 						"filepath":     node.Filepath,
 						"line_start":   node.SrcLineStart,
 						"line_end":     node.SrcLineEnd,
@@ -60,20 +60,20 @@ func (m *Manager) getCacheKeyspaces(ctx context.Context, request mcp.CallToolReq
 	}
 
 	// Build the result
-	result := make([]map[string]interface{}, 0)
+	result := make([]map[string]any, 0)
 
 	// Process all cache clusters
 	for _, cluster := range md.CacheClusters {
-		clusterInfo := map[string]interface{}{
+		clusterInfo := map[string]any{
 			"name":            cluster.Name,
 			"eviction_policy": cluster.EvictionPolicy,
 			"doc":             cluster.Doc,
 		}
 
 		// Process keyspaces for this cluster
-		keyspaces := make([]map[string]interface{}, 0)
+		keyspaces := make([]map[string]any, 0)
 		for _, keyspace := range cluster.Keyspaces {
-			keyspaceInfo := map[string]interface{}{
+			keyspaceInfo := map[string]any{
 				"service": keyspace.Service,
 				"doc":     keyspace.Doc,
 			}
@@ -82,7 +82,7 @@ func (m *Manager) getCacheKeyspaces(ctx context.Context, request mcp.CallToolReq
 			if keyspace.KeyType != nil {
 				keyTypeData, err := protojson.Marshal(keyspace.KeyType)
 				if err == nil {
-					var keyTypeJson interface{}
+					var keyTypeJson any
 					if err := json.Unmarshal(keyTypeData, &keyTypeJson); err == nil {
 						keyspaceInfo["key_type"] = keyTypeJson
 					}
@@ -92,7 +92,7 @@ func (m *Manager) getCacheKeyspaces(ctx context.Context, request mcp.CallToolReq
 			if keyspace.ValueType != nil {
 				valueTypeData, err := protojson.Marshal(keyspace.ValueType)
 				if err == nil {
-					var valueTypeJson interface{}
+					var valueTypeJson any
 					if err := json.Unmarshal(valueTypeData, &valueTypeJson); err == nil {
 						keyspaceInfo["value_type"] = valueTypeJson
 					}
@@ -118,7 +118,7 @@ func (m *Manager) getCacheKeyspaces(ctx context.Context, request mcp.CallToolReq
 						// If this location is for a keyspace in this service, add it
 						if packageService := findServiceNameForPackage(md, location["package_path"].(string)); packageService == keyspace.Service {
 							keyspaceInfo["name"] = keyspaceName
-							keyspaceInfo["definition"] = map[string]interface{}{
+							keyspaceInfo["definition"] = map[string]any{
 								"filepath":     location["filepath"],
 								"line_start":   location["line_start"],
 								"line_end":     location["line_end"],

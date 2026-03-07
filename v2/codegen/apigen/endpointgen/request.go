@@ -80,7 +80,7 @@ func (d *requestDesc) DecodeRequest() *Statement {
 func (d *requestDesc) HandlerArgs() []Code {
 	numPathParams := d.ep.Path.NumParams()
 	args := make([]Code, 0, 1+numPathParams)
-	for i := 0; i < numPathParams; i++ {
+	for i := range numPathParams {
 		args = append(args, d.reqDataPathParamExpr(i))
 	}
 	if d.ep.Request != nil {

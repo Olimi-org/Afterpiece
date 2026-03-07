@@ -27,8 +27,8 @@ func (m *Manager) getPubSub(ctx context.Context, request mcp.CallToolRequest) (*
 	}
 
 	// Create a map to find topic and subscription definitions from trace nodes
-	topicDefLocations := make(map[string]map[string]interface{})
-	subscriptionDefLocations := make(map[string]map[string]map[string]interface{})
+	topicDefLocations := make(map[string]map[string]any)
+	subscriptionDefLocations := make(map[string]map[string]map[string]any)
 
 	// Scan through all packages to find trace nodes related to pubsub
 	for _, pkg := range md.Pkgs {
@@ -37,7 +37,7 @@ func (m *Manager) getPubSub(ctx context.Context, request mcp.CallToolRequest) (*
 			if node.GetPubsubTopicDef() != nil {
 				topicDef := node.GetPubsubTopicDef()
 				if _, exists := topicDefLocations[topicDef.TopicName]; !exists {
-					topicDefLocations[topicDef.TopicName] = map[string]interface{}{
+					topicDefLocations[topicDef.TopicName] = map[string]any{
 						"filepath":     node.Filepath,
 						"line_start":   node.SrcLineStart,
 						"line_end":     node.SrcLineEnd,
@@ -51,11 +51,11 @@ func (m *Manager) getPubSub(ctx context.Context, request mcp.CallToolRequest) (*
 			if node.GetPubsubSubscriber() != nil {
 				subDef := node.GetPubsubSubscriber()
 				if _, exists := subscriptionDefLocations[subDef.TopicName]; !exists {
-					subscriptionDefLocations[subDef.TopicName] = make(map[string]map[string]interface{})
+					subscriptionDefLocations[subDef.TopicName] = make(map[string]map[string]any)
 				}
 
 				if _, exists := subscriptionDefLocations[subDef.TopicName][subDef.SubscriberName]; !exists {
-					subscriptionDefLocations[subDef.TopicName][subDef.SubscriberName] = map[string]interface{}{
+					subscriptionDefLocations[subDef.TopicName][subDef.SubscriberName] = map[string]any{
 						"filepath":     node.Filepath,
 						"line_start":   node.SrcLineStart,
 						"line_end":     node.SrcLineEnd,
@@ -68,20 +68,20 @@ func (m *Manager) getPubSub(ctx context.Context, request mcp.CallToolRequest) (*
 	}
 
 	// Now build the response with locations
-	topics := make([]map[string]interface{}, 0)
+	topics := make([]map[string]any, 0)
 	for _, topic := range md.PubsubTopics {
 		// Extract publishers
-		publishers := make([]map[string]interface{}, 0)
+		publishers := make([]map[string]any, 0)
 		for _, publisher := range topic.Publishers {
-			publishers = append(publishers, map[string]interface{}{
+			publishers = append(publishers, map[string]any{
 				"service_name": publisher.ServiceName,
 			})
 		}
 
 		// Extract subscriptions
-		subscriptions := make([]map[string]interface{}, 0)
+		subscriptions := make([]map[string]any, 0)
 		for _, subscription := range topic.Subscriptions {
-			subscriptionInfo := map[string]interface{}{
+			subscriptionInfo := map[string]any{
 				"name":         subscription.Name,
 				"service_name": subscription.ServiceName,
 			}
@@ -106,7 +106,7 @@ func (m *Manager) getPubSub(ctx context.Context, request mcp.CallToolRequest) (*
 
 			// Add retry policy if available
 			if subscription.RetryPolicy != nil {
-				retryPolicy := map[string]interface{}{}
+				retryPolicy := map[string]any{}
 				if subscription.RetryPolicy.MinBackoff > 0 {
 					retryPolicy["min_backoff"] = formatDuration(subscription.RetryPolicy.MinBackoff)
 				}
@@ -123,7 +123,7 @@ func (m *Manager) getPubSub(ctx context.Context, request mcp.CallToolRequest) (*
 		}
 
 		// Build topic info
-		topicInfo := map[string]interface{}{
+		topicInfo := map[string]any{
 			"name":               topic.Name,
 			"publishers":         publishers,
 			"subscriptions":      subscriptions,
@@ -151,7 +151,7 @@ func (m *Manager) getPubSub(ctx context.Context, request mcp.CallToolRequest) (*
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal message type: %w", err)
 			}
-			var messageTypeJson interface{}
+			var messageTypeJson any
 			if err := json.Unmarshal(messageTypeData, &messageTypeJson); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal message type JSON: %w", err)
 			}

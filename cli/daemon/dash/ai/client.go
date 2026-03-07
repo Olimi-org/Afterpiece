@@ -89,7 +89,7 @@ func (t *AITask) Stop() error {
 
 // startAITask is a helper function to intitiate an AI query to the encore platform. The query
 // should be assembled to stream a 'result' graphql field that is a AIStreamMessage.
-func startAITask[Query any](ctx context.Context, params map[string]interface{}, notifier AINotifier) (*AITask, error) {
+func startAITask[Query any](ctx context.Context, params map[string]any, notifier AINotifier) (*AITask, error) {
 	var subId string
 	var errStrReply = func(error string, code any) error {
 		log.Error().Msgf("ai error: %s (%v)", error, code)

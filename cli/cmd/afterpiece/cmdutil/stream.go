@@ -50,11 +50,8 @@ func StreamCommandOutput(stream CommandOutputStream, converter OutputConverter) 
 		defer func() { _ = errw.Close() }()
 
 		for i, read := range []io.Reader{outRead, errRead} {
-			read := read
 			stdout := i == 0
-			writesDone.Add(1)
-			go func() {
-				defer writesDone.Done()
+			writesDone.Go(func() {
 
 				for {
 					scanner := bufio.NewScanner(read)
@@ -77,7 +74,7 @@ func StreamCommandOutput(stream CommandOutputStream, converter OutputConverter) 
 						break
 					}
 				}
-			}()
+			})
 		}
 	}
 

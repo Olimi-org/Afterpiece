@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"maps"
+	"slices"
 )
 
 // Map applies fn on all elements in src, producing a new slice
@@ -69,12 +70,7 @@ func TransformMapKeys[K1, K2 comparable, V any](m map[K1]V, fn func(K1) K2) map[
 
 // Any returns true if any element in src satisfies the predicate.
 func Any[A any](src []A, pred func(A) bool) bool {
-	for _, v := range src {
-		if pred(v) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(src, pred)
 }
 
 // All returns true if all elements in src satisfy the predicate.

@@ -20,7 +20,7 @@ func httpStatusCodeOf(err error) int {
 	return 0
 }
 
-func fmtErrorfCode(httpCode int, f string, args ...interface{}) error {
+func fmtErrorfCode(httpCode int, f string, args ...any) error {
 	return &httpError{
 		cause: fmt.Errorf(f, args...),
 		code:  httpCode,

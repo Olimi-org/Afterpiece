@@ -171,10 +171,7 @@ func (tp *traceParser) spanStartEvent() spanStartEvent {
 }
 
 func (tp *traceParser) spanEndEvent() spanEndEvent {
-	dur := tp.Duration()
-	if dur < 0 {
-		dur = 0
-	}
+	dur := max(tp.Duration(), 0)
 	err := tp.errWithStack()
 	panicStack := tp.formattedStack()
 	parentTraceID := tp.traceID()
@@ -758,7 +755,7 @@ func (tp *traceParser) httpEvent() *tracepb2.HTTPTraceEvent {
 			Err: tp.ByteString(),
 		}
 		addrs := int(tp.UVarint())
-		for j := 0; j < addrs; j++ {
+		for range addrs {
 			data.Addrs = append(data.Addrs, &tracepb2.DNSAddr{
 				Ip: tp.ByteString(),
 			})
@@ -862,7 +859,7 @@ func (tp *traceParser) logMessage() *tracepb2.LogMessage {
 				// TODO bailout
 			}
 			fields := make([]*tracepb2.LogField, 0, n)
-			for i := 0; i < n; i++ {
+			for range n {
 				fields = append(fields, tp.logField())
 			}
 			return fields
@@ -923,7 +920,7 @@ func (tp *traceParser) stack() *tracepb2.StackTrace {
 
 	tr := &tracepb2.StackTrace{}
 	diffs := make([]int64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		diff := tp.Varint()
 		diffs[i] = diff
 	}
@@ -932,7 +929,7 @@ func (tp *traceParser) stack() *tracepb2.StackTrace {
 	prev := int64(0)
 
 	pcs := make([]uint64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		x := prev + diffs[i]
 		prev = x
 		pcs[i] = uint64(x)
@@ -951,7 +948,7 @@ func (tp *traceParser) formattedStack() *tracepb2.StackTrace {
 		Frames: make([]*tracepb2.StackFrame, n),
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		tr.Frames[i] = &tracepb2.StackFrame{
 			Filename: tp.String(),
 			Line:     int32(tp.UVarint()),

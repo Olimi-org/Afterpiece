@@ -222,7 +222,6 @@ const errCtxKey ctxKey = "error"
 func newRouteLookuper(routes []*Route) *httprouter.Router {
 	r := httprouter.New()
 	for _, route := range routes {
-		route := route // for the closure below
 		for _, m := range route.Methods {
 			r.Handle(m, route.Path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 				w.(*sentinelResponseWriter).route = route

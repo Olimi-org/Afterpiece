@@ -1134,7 +1134,7 @@ func (js *javascript) convertStringToBuiltin(typ schema.Builtin, val string) str
 	}
 }
 
-func (js *javascript) errorf(format string, args ...interface{}) {
+func (js *javascript) errorf(format string, args ...any) {
 	panic(bailout{fmt.Errorf(format, args...)})
 }
 

@@ -22,7 +22,7 @@ type ExecCredential struct {
 	TypeMeta `json:",inline"`
 
 	// Spec holds information passed to the plugin by the transport.
-	Spec ExecCredentialSpec `json:"spec,omitempty"`
+	Spec ExecCredentialSpec `json:"spec"`
 
 	// Status is filled in by the plugin and holds the credentials that the transport
 	// should use to contact the API.
@@ -116,5 +116,5 @@ type Cluster struct {
 	// recommended as one of the prime benefits of exec plugins is that no secrets need
 	// to be stored directly in the kubeconfig.
 	// +optional
-	Config RawExtension `json:"config,omitempty"`
+	Config RawExtension `json:"config"`
 }

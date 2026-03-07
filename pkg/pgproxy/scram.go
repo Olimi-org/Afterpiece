@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/jackc/pgproto3/v2"
@@ -116,13 +117,7 @@ func newScramClient(serverAuthMechanisms []string, password string) (*scramClien
 	}
 
 	// Ensure server supports SCRAM-SHA-256
-	hasScramSHA256 := false
-	for _, mech := range sc.serverAuthMechanisms {
-		if mech == "SCRAM-SHA-256" {
-			hasScramSHA256 = true
-			break
-		}
-	}
+	hasScramSHA256 := slices.Contains(sc.serverAuthMechanisms, "SCRAM-SHA-256")
 	if !hasScramSHA256 {
 		return nil, errors.New("server does not support SCRAM-SHA-256")
 	}
@@ -147,8 +142,8 @@ func newScramClient(serverAuthMechanisms []string, password string) (*scramClien
 }
 
 func (sc *scramClient) clientFirstMessage() []byte {
-	sc.clientFirstMessageBare = []byte(fmt.Sprintf("n=,r=%s", sc.clientNonce))
-	return []byte(fmt.Sprintf("n,,%s", sc.clientFirstMessageBare))
+	sc.clientFirstMessageBare = fmt.Appendf(nil, "n=,r=%s", sc.clientNonce)
+	return fmt.Appendf(nil, "n,,%s", sc.clientFirstMessageBare)
 }
 
 func (sc *scramClient) recvServerFirstMessage(serverFirstMessage []byte) error {
@@ -207,7 +202,7 @@ func (sc *scramClient) recvServerFirstMessage(serverFirstMessage []byte) error {
 }
 
 func (sc *scramClient) clientFinalMessage() string {
-	clientFinalMessageWithoutProof := []byte(fmt.Sprintf("c=biws,r=%s", sc.clientAndServerNonce))
+	clientFinalMessageWithoutProof := fmt.Appendf(nil, "c=biws,r=%s", sc.clientAndServerNonce)
 
 	sc.saltedPassword = pbkdf2.Key([]byte(sc.password), sc.salt, sc.iterations, 32, sha256.New)
 	sc.authMessage = bytes.Join([][]byte{sc.clientFirstMessageBare, sc.serverFirstMessage, clientFinalMessageWithoutProof}, []byte(","))
@@ -243,7 +238,7 @@ func computeClientProof(saltedPassword, authMessage []byte) []byte {
 	clientSignature := computeHMAC(storedKey[:], authMessage)
 
 	clientProof := make([]byte, len(clientSignature))
-	for i := 0; i < len(clientSignature); i++ {
+	for i := range clientSignature {
 		clientProof[i] = clientKey[i] ^ clientSignature[i]
 	}
 

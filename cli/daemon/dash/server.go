@@ -140,7 +140,7 @@ func (s *Server) hasClients() bool {
 
 type notification struct {
 	Method string
-	Params interface{}
+	Params any
 }
 
 // notify notifies any active clients.

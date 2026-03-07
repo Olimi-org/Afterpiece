@@ -119,7 +119,7 @@ func genEndpoint(gu *genutil.Helper, f *codegen.File, ep *api.Endpoint, withImpl
 func getEndpointPrototype(gu *genutil.Helper, grp *Group, ep *api.Endpoint, withFuncKeyWord bool, withImpl option.Option[*codegen.VarDecl]) (*Statement, []string, func(input string, pathParam bool) string, string, string) {
 	// Add the doc comment
 	if ep.Doc != "" {
-		for _, line := range strings.Split(strings.TrimSpace(ep.Doc), "\n") {
+		for line := range strings.SplitSeq(strings.TrimSpace(ep.Doc), "\n") {
 			grp.Comment(line)
 		}
 	}

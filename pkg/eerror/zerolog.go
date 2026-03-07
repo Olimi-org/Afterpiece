@@ -24,7 +24,7 @@ type errorMeta struct {
 // - the error meta data collected from all errors
 //
 // This can then be extracted by ZeroLogConsoleExtraFormatter
-func ZeroLogStackMarshaller(err error) interface{} {
+func ZeroLogStackMarshaller(err error) any {
 	var frames []uintptr
 	for _, frame := range BottomStackTraceFrom(err) {
 		// Account for the stack trace being 1 frame deeper than the error

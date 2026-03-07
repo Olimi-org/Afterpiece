@@ -242,7 +242,7 @@ func failedPreconditionError(msg, typ, desc string) error {
 	return st.Err()
 }
 
-func ErrInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+func ErrInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 	resp, err = handler(ctx, req)
 	if errors.Is(err, conf.ErrInvalidRefreshToken) {
 		return nil, failedPreconditionError("invalid refresh token", "INVALID_REFRESH_TOKEN", "invalid refresh token")
@@ -458,7 +458,7 @@ func fatal(err error) {
 	panic(bailout{err})
 }
 
-func fatalf(format string, args ...interface{}) {
+func fatalf(format string, args ...any) {
 	panic(bailout{fmt.Errorf(format, args...)})
 }
 

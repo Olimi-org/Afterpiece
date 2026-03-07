@@ -37,7 +37,9 @@ func TestTransientLockMapBasics(t *testing.T) {
 
 	// wrt upstream and downstream, this goroutine is "above" the main thread, so it writes to downstream and reads from
 	// upstream
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		lockWithin(t, m, "foo", 10*time.Millisecond)
 		downstream <- 1
 		waitFor(upstream, 2)
@@ -70,6 +72,7 @@ func TestTransientLockMapBasics(t *testing.T) {
 	m.Unlock("baz")
 	assert.Equal(t, 1, m.len(), "wrong number of internal locks")
 
+	<-done
 	m.Unlock("foo")
 	assert.Equal(t, 0, m.len(), "wrong number of internal locks")
 }
@@ -163,15 +166,13 @@ func TestTransientLockMapContention(t *testing.T) {
 	assertLock(t, m, "foo")
 	assertLock(t, m, "bar")
 
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			assertLock(t, m, "foo")
 			m.Unlock("foo")
 			assertLock(t, m, "bar")
 			m.Unlock("bar")
-		}()
+		})
 	}
 
 	time.Sleep(30 * time.Millisecond)
@@ -231,7 +232,7 @@ func TestTransientLockMapTimeout(t *testing.T) {
 	assert.Equal(t, 0, m.len(), "wrong number of internal locks")
 
 	// We should not be able to lock with an already-cancelled context.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		assert.Assert(t, !m.Lock(ctx2, "foo"), "lock foo (final) expected canceled")
 	}
 }
@@ -246,7 +247,7 @@ func TestTransientLockMapRun(t *testing.T) {
 	var nSucc int32
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if i == 0 {
 			wgSucc.Add(1)
 		} else {

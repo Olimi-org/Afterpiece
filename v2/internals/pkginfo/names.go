@@ -588,8 +588,8 @@ func isEncoreAPI(fd *ast.FuncDecl) bool {
 	}
 
 	// Legacy syntax
-	lines := strings.Split(fd.Doc.Text(), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(fd.Doc.Text(), "\n")
+	for line := range lines {
 		if strings.HasPrefix(line, directive) {
 			return true
 		}

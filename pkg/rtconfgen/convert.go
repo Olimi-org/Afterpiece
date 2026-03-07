@@ -89,9 +89,9 @@ func (c *legacyConverter) Convert() (*config.Runtime, error) {
 
 		if deployment.GracefulShutdown != nil {
 			cfg.GracefulShutdown = &config.GracefulShutdownTimings{
-				Total:         ptr(deployment.GracefulShutdown.Total.AsDuration()),
-				ShutdownHooks: ptr(deployment.GracefulShutdown.ShutdownHooks.AsDuration()),
-				Handlers:      ptr(deployment.GracefulShutdown.Handlers.AsDuration()),
+				Total:         new(deployment.GracefulShutdown.Total.AsDuration()),
+				ShutdownHooks: new(deployment.GracefulShutdown.ShutdownHooks.AsDuration()),
+				Handlers:      new(deployment.GracefulShutdown.Handlers.AsDuration()),
 			}
 			cfg.ShutdownTimeout = deployment.GracefulShutdown.Total.AsDuration()
 		}
@@ -663,8 +663,9 @@ func nilPtrToZero[T comparable](val *T) T {
 	return *val
 }
 
+//go:fix inline
 func ptr[T comparable](val T) *T {
-	return &val
+	return new(val)
 }
 
 func ptrOrNil[T comparable](val T) *T {

@@ -172,7 +172,7 @@ type KubeCtlConfig struct {
 }
 
 func escapef(format string, args ...string) string {
-	ifaces := make([]interface{}, len(args))
+	ifaces := make([]any, len(args))
 	for i, arg := range args {
 		ifaces[i] = url.PathEscape(arg)
 	}

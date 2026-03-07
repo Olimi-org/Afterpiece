@@ -40,7 +40,7 @@ func (e Error) Error() string {
 
 // call makes a call to the API endpoint given by method and path.
 // If reqParams and respParams are non-nil they are JSON-marshalled/unmarshalled.
-func call(ctx context.Context, method, path string, reqParams, respParams interface{}, auth bool) (err error) {
+func call(ctx context.Context, method, path string, reqParams, respParams any, auth bool) (err error) {
 	log.Trace().Interface("request", reqParams).Msgf("->     %s %s", method, path)
 	defer func() {
 		if err != nil {
@@ -79,10 +79,10 @@ func call(ctx context.Context, method, path string, reqParams, respParams interf
 }
 
 type graphqlRequest struct {
-	Query         string                 `json:"query"`
-	Variables     map[string]interface{} `json:"variables,omitempty"`
-	OperationName string                 `json:"operationName,omitempty"`
-	Extensions    map[string]interface{} `json:"extensions,omitempty"`
+	Query         string         `json:"query"`
+	Variables     map[string]any `json:"variables,omitempty"`
+	OperationName string         `json:"operationName,omitempty"`
+	Extensions    map[string]any `json:"extensions,omitempty"`
 }
 
 var graphqlDecoder = (func() jsoniter.API {
@@ -103,7 +103,7 @@ func graphqlCall(ctx context.Context, req graphqlRequest, respData any, auth boo
 	var respStruct struct {
 		Data       json.RawMessage
 		Errors     gql.ErrorList
-		Extensions map[string]interface{}
+		Extensions map[string]any
 	}
 	defer func() {
 		if err != nil {
@@ -128,7 +128,7 @@ func graphqlCall(ctx context.Context, req graphqlRequest, respData any, auth boo
 
 // rawCall makes a call to the API endpoint given by method and path.
 // It returns the raw HTTP response body on success; it must be closed by the caller.
-func rawCall(ctx context.Context, method, path string, reqParams interface{}, auth bool) (respBody io.ReadCloser, err error) {
+func rawCall(ctx context.Context, method, path string, reqParams any, auth bool) (respBody io.ReadCloser, err error) {
 	log.Trace().Msgf("->     %s %s: %+v", method, path, reqParams)
 	defer func() {
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"go/constant"
 	"go/token"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -183,10 +184,8 @@ func ParseConstant(errs *perr.List, file *pkginfo.File, value ast.Expr) (rtn con
 		if sel, ok := value.Fun.(*ast.SelectorExpr); ok && len(value.Args) == 1 {
 			if obj, ok := file.Names().ResolvePkgLevelRef(sel); ok {
 				if pkgFuncs, found := noOpCasts[obj.PkgPath]; found {
-					for _, allowed := range pkgFuncs {
-						if allowed == obj.Name {
-							return ParseConstant(errs, file, value.Args[0])
-						}
+					if slices.Contains(pkgFuncs, obj.Name) {
+						return ParseConstant(errs, file, value.Args[0])
 					}
 				}
 			}

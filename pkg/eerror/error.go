@@ -6,6 +6,7 @@ package eerror
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/cockroachdb/errors/errbase"
@@ -53,9 +54,7 @@ func WithMeta(err error, meta map[string]any) error {
 	loopErr := err
 	for loopErr != nil {
 		if e, ok := loopErr.(*Error); ok {
-			for key, value := range meta {
-				e.Meta[key] = value
-			}
+			maps.Copy(e.Meta, meta)
 			return loopErr
 		}
 
@@ -176,9 +175,7 @@ func mergeMeta(err error, meta map[string]any) {
 
 	// Then merge in our data
 	if e, ok := err.(*Error); ok {
-		for key, value := range e.Meta {
-			meta[key] = value
-		}
+		maps.Copy(meta, e.Meta)
 	}
 
 }

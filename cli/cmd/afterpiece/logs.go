@@ -83,8 +83,8 @@ func streamLogs(appRoot, envName string) {
 			return
 		}
 
-		lines := bytes.Split(message, []byte("\n"))
-		for _, line := range lines {
+		lines := bytes.SplitSeq(message, []byte("\n"))
+		for line := range lines {
 			// Pretty-print logs if requested and it looks like a JSON log line
 			if !logsJSON && bytes.HasPrefix(line, []byte{'{'}) {
 				if _, err := cw.Write(mapCloudFieldNamesToExpected(line)); err != nil {

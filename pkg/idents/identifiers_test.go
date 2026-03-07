@@ -29,7 +29,6 @@ func Test_parseIdentifier(t *testing.T) {
 		{"This is a full sentence... with \"random! bits-and_pieces123 blah", []string{"this", "is", "a", "full", "sentence", "with", "random", "bits", "and", "pieces123", "blah"}},
 	}
 	for _, tt := range tests {
-		tt := tt
 		c.Run(tt.input, func(c *qt.C) {
 			c.Parallel()
 
@@ -59,7 +58,6 @@ func Test_convertIdentifierTo(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		c.Run(tt.input, func(c *qt.C) {
 			c.Parallel()
 

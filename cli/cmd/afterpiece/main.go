@@ -30,7 +30,7 @@ func main() {
 	}
 }
 
-// determineAppRoot determines the app root by looking for the "encore.app" file,
+// determineAppRoot determines the app root by looking for a project config file,
 // initially in the current directory and then recursively in parent directories
 // up to the filesystem root.
 // It reports the absolute path to the app root, and the
@@ -64,11 +64,11 @@ func displayError(out *os.File, err []byte) {
 	cmdutil.DisplayError(out, err)
 }
 
-func fatal(args ...interface{}) {
+func fatal(args ...any) {
 	cmdutil.Fatal(args...)
 }
 
-func fatalf(format string, args ...interface{}) {
+func fatalf(format string, args ...any) {
 	cmdutil.Fatalf(format, args...)
 }
 

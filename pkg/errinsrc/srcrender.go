@@ -140,7 +140,7 @@ linePrintLoop:
 			gapRenderedUntil = currentCause.Start.Line
 
 			// render two spaces for a break in the file
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				lineNumberSpacer(builder, numDigitsInLineNumbers, set.VerticalBreak)
 				builder.WriteString("\n")
 			}
@@ -202,10 +202,7 @@ linePrintLoop:
 				}
 
 				// Work out how long the indicator is
-				indicatorLength := endCol - startCol
-				if indicatorLength <= 1 {
-					indicatorLength = 1
-				}
+				indicatorLength := max(endCol-startCol, 1)
 
 				// Create out the error lines
 				errorLines := []string{""}
@@ -366,12 +363,9 @@ func renderErrorText(builder *strings.Builder, startCol int, numDigitsInLineNumb
 
 func splitTextOnWords(text string, startingCol int) (rtn []string) {
 	text = strings.TrimSpace(text)
-	maxLineLength := TerminalWidth - startingCol
-	if maxLineLength < 20 {
-		maxLineLength = 20
-	}
+	maxLineLength := max(TerminalWidth-startingCol, 20)
 
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		if len(line) <= maxLineLength {
 			rtn = append(rtn, line)
 			continue

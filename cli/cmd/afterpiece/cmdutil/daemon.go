@@ -136,7 +136,7 @@ func StartDaemonInBackground(ctx context.Context) error {
 	}
 
 	// Wait for it to come up
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func dialDaemon(ctx context.Context, socketPath string) (*grpc.ClientConn, error
 	)
 }
 
-func errInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+func errInterceptor(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	if err != nil {
 		if st, ok := status.FromError(err); ok {

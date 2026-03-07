@@ -34,7 +34,7 @@ func TestWalkDirs(t *testing.T) {
 	// It reports the directory root.
 	createTree := func(tree string) (root string) {
 		root = t.TempDir()
-		for _, node := range strings.Fields(tree) {
+		for node := range strings.FieldsSeq(tree) {
 			// Create the dir if we have a slash
 			if idx := strings.LastIndexByte(node, '/'); idx > 0 {
 				p := filepath.Join(root, filepath.FromSlash(node[:idx]))

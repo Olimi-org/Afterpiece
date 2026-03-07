@@ -88,7 +88,7 @@ func TestParse(t *testing.T) {
 							RequestHeaders:   map[string]string{"Content-Type": "application/json"},
 							RequestPayload:   []byte(`{"Body":"foo"}`),
 							ExtCorrelationId: nil,
-							Uid:              ptr("userid"),
+							Uid:              new("userid"),
 						},
 					},
 				}},
@@ -332,7 +332,7 @@ func TestParse(t *testing.T) {
 				SpanId:  pbSpanID,
 				Event: &tracepb2.TraceEvent_SpanEvent{SpanEvent: &tracepb2.SpanEvent{
 					Goid:               goid,
-					CorrelationEventId: ptr[uint64](1),
+					CorrelationEventId: new(uint64(1)),
 					Data: &tracepb2.SpanEvent_RpcCallEnd{
 						RpcCallEnd: &tracepb2.RPCCallEnd{
 							Err: pbErr,
@@ -357,7 +357,7 @@ func TestParse(t *testing.T) {
 				Event: &tracepb2.TraceEvent_SpanEvent{SpanEvent: &tracepb2.SpanEvent{
 					Goid:               goid,
 					DefLoc:             &udefLoc,
-					CorrelationEventId: ptr[uint64](1),
+					CorrelationEventId: new(uint64(1)),
 					Data: &tracepb2.SpanEvent_DbQueryStart{
 						DbQueryStart: &tracepb2.DBQueryStart{
 							Query: "query",
@@ -378,7 +378,7 @@ func TestParse(t *testing.T) {
 				Event: &tracepb2.TraceEvent_SpanEvent{SpanEvent: &tracepb2.SpanEvent{
 					Goid:               goid,
 					DefLoc:             &udefLoc,
-					CorrelationEventId: ptr[uint64](1),
+					CorrelationEventId: new(uint64(1)),
 					Data: &tracepb2.SpanEvent_DbQueryEnd{
 						DbQueryEnd: &tracepb2.DBQueryEnd{
 							Err: pbErr,
@@ -423,7 +423,7 @@ func TestParse(t *testing.T) {
 				Event: &tracepb2.TraceEvent_SpanEvent{SpanEvent: &tracepb2.SpanEvent{
 					Goid:               goid,
 					DefLoc:             &udefLoc,
-					CorrelationEventId: ptr[uint64](1),
+					CorrelationEventId: new(uint64(1)),
 					Data: &tracepb2.SpanEvent_DbTransactionEnd{
 						DbTransactionEnd: &tracepb2.DBTransactionEnd{
 							Completion: tracepb2.DBTransactionEnd_COMMIT,
@@ -478,10 +478,10 @@ func TestParse(t *testing.T) {
 				Event: &tracepb2.TraceEvent_SpanEvent{SpanEvent: &tracepb2.SpanEvent{
 					Goid:               goid,
 					DefLoc:             &udefLoc,
-					CorrelationEventId: ptr[uint64](1),
+					CorrelationEventId: new(uint64(1)),
 					Data: &tracepb2.SpanEvent_PubsubPublishEnd{
 						PubsubPublishEnd: &tracepb2.PubsubPublishEnd{
-							MessageId: ptr("message-id"),
+							MessageId: new("message-id"),
 							Err:       pbErr,
 						},
 					},
@@ -523,7 +523,7 @@ func TestParse(t *testing.T) {
 				Event: &tracepb2.TraceEvent_SpanEvent{SpanEvent: &tracepb2.SpanEvent{
 					Goid:               goid,
 					DefLoc:             &udefLoc,
-					CorrelationEventId: ptr[uint64](1),
+					CorrelationEventId: new(uint64(1)),
 					Data: &tracepb2.SpanEvent_ServiceInitEnd{
 						ServiceInitEnd: &tracepb2.ServiceInitEnd{
 							Err: pbErr,
@@ -578,7 +578,7 @@ func TestParse(t *testing.T) {
 				Event: &tracepb2.TraceEvent_SpanEvent{SpanEvent: &tracepb2.SpanEvent{
 					Goid:               goid,
 					DefLoc:             &udefLoc,
-					CorrelationEventId: ptr[uint64](1),
+					CorrelationEventId: new(uint64(1)),
 					Data: &tracepb2.SpanEvent_CacheCallEnd{
 						CacheCallEnd: &tracepb2.CacheCallEnd{
 							Result: tracepb2.CacheCallEnd_ERR,
@@ -685,6 +685,7 @@ func TestParse(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func ptr[T any](val T) *T {
-	return &val
+	return new(val)
 }

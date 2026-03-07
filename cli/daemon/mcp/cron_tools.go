@@ -26,7 +26,7 @@ func (m *Manager) getCronJobs(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	// Create a map to find service and endpoint locations
-	endpointLocations := make(map[string]map[string]map[string]interface{})
+	endpointLocations := make(map[string]map[string]map[string]any)
 
 	// Scan through all packages to find trace nodes related to RPC definitions
 	for _, pkg := range md.Pkgs {
@@ -39,11 +39,11 @@ func (m *Manager) getCronJobs(ctx context.Context, request mcp.CallToolRequest) 
 
 				// Initialize maps if needed
 				if _, exists := endpointLocations[serviceName]; !exists {
-					endpointLocations[serviceName] = make(map[string]map[string]interface{})
+					endpointLocations[serviceName] = make(map[string]map[string]any)
 				}
 
 				if _, exists := endpointLocations[serviceName][rpcName]; !exists {
-					endpointLocations[serviceName][rpcName] = map[string]interface{}{
+					endpointLocations[serviceName][rpcName] = map[string]any{
 						"filepath":     node.Filepath,
 						"line_start":   node.SrcLineStart,
 						"line_end":     node.SrcLineEnd,
@@ -56,9 +56,9 @@ func (m *Manager) getCronJobs(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	// Process cron jobs with location information
-	cronjobs := make([]map[string]interface{}, 0)
+	cronjobs := make([]map[string]any, 0)
 	for _, job := range md.CronJobs {
-		jobInfo := map[string]interface{}{
+		jobInfo := map[string]any{
 			"id":       job.Id,
 			"title":    job.Title,
 			"schedule": job.Schedule,
@@ -71,7 +71,7 @@ func (m *Manager) getCronJobs(ctx context.Context, request mcp.CallToolRequest) 
 
 		// Add endpoint information
 		if job.Endpoint != nil {
-			endpoint := map[string]interface{}{
+			endpoint := map[string]any{
 				"package": job.Endpoint.Pkg,
 				"name":    job.Endpoint.Name,
 			}

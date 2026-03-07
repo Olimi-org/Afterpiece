@@ -200,9 +200,9 @@ func (c *sseConnection) SendMessage(data []byte) error {
 // CreateErrorResponse creates a JSON-RPC error response with the correct ID if available
 func (c *sseConnection) CreateErrorResponse(id *jsonrpc2.ID, code int, message string) string {
 	// Build the error response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"jsonrpc": "2.0",
-		"error": map[string]interface{}{
+		"error": map[string]any{
 			"code":    code,
 			"message": message,
 		},
@@ -285,8 +285,8 @@ var runCmd = &cobra.Command{
 					responseMsg := struct {
 						JSONRPC string       `json:"jsonrpc"`
 						ID      *jsonrpc2.ID `json:"id"`
-						Result  interface{}  `json:"result,omitempty"`
-						Error   interface{}  `json:"error,omitempty"`
+						Result  any          `json:"result,omitempty"`
+						Error   any          `json:"error,omitempty"`
 					}{}
 
 					if err := json.Unmarshal([]byte(data), &responseMsg); err == nil && responseMsg.ID != nil {

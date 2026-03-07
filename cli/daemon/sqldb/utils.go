@@ -13,7 +13,7 @@ import (
 // WaitForConn waits for a successful connection to uri to be established.
 func WaitForConn(ctx context.Context, uri string) error {
 	var err error
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		var conn *pgx.Conn
 		conn, err = pgx.Connect(ctx, uri)
 		if err == nil {

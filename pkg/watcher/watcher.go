@@ -32,7 +32,7 @@ type Watcher struct {
 func New(appID string) (*Watcher, error) {
 	fswatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, eerror.Wrap(err, "watcher", "unable to create watcher", map[string]interface{}{"app": appID})
+		return nil, eerror.Wrap(err, "watcher", "unable to create watcher", map[string]any{"app": appID})
 	}
 
 	logger := log.With().Str("component", "watcher").Str("app", appID).Logger()

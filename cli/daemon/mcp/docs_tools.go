@@ -60,7 +60,7 @@ func (m *Manager) searchDocs(ctx context.Context, request mcp.CallToolRequest) (
 
 	// Process facet filters if provided
 	var facetFilters []string
-	if filters, ok := request.Params.Arguments["facet_filters"].([]interface{}); ok {
+	if filters, ok := request.Params.Arguments["facet_filters"].([]any); ok {
 		for _, filter := range filters {
 			if filterStr, ok := filter.(string); ok && filterStr != "" {
 				facetFilters = append(facetFilters, filterStr)
@@ -88,7 +88,7 @@ func (m *Manager) searchDocs(ctx context.Context, request mcp.CallToolRequest) (
 }
 
 // performAlgoliaSearch performs the actual search against Algolia
-func performAlgoliaSearch(ctx context.Context, query string, page, hitsPerPage int, facetFilters []string) (map[string]interface{}, error) {
+func performAlgoliaSearch(ctx context.Context, query string, page, hitsPerPage int, facetFilters []string) (map[string]any, error) {
 	// Initialize Algolia client with configurable app ID and API key
 	// In a production environment, these should be loaded from configuration
 	appID := "R7DAHI8GEL"
@@ -98,7 +98,7 @@ func performAlgoliaSearch(ctx context.Context, query string, page, hitsPerPage i
 	index := client.InitIndex("encore_docs")
 
 	// Build search parameters
-	params := []interface{}{
+	params := []any{
 		opt.Page(page),
 		opt.HitsPerPage(hitsPerPage),
 	}
@@ -110,7 +110,7 @@ func performAlgoliaSearch(ctx context.Context, query string, page, hitsPerPage i
 			params = append(params, opt.FacetFilter(facetFilters[0]))
 		} else {
 			// Convert []string to []interface{} for compatibility
-			facetFilterInterfaces := make([]interface{}, len(facetFilters))
+			facetFilterInterfaces := make([]any, len(facetFilters))
 			for i, filter := range facetFilters {
 				facetFilterInterfaces[i] = filter
 			}
@@ -125,7 +125,7 @@ func performAlgoliaSearch(ctx context.Context, query string, page, hitsPerPage i
 	}
 
 	// Convert the Algolia response to our expected format
-	result := map[string]interface{}{
+	result := map[string]any{
 		"hits":             res.Hits,
 		"page":             res.Page,
 		"nbHits":           res.NbHits,
@@ -142,7 +142,7 @@ func performAlgoliaSearch(ctx context.Context, query string, page, hitsPerPage i
 func (m *Manager) getDocs(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Extract paths parameter from the request
 	var docPaths []string
-	if paths, ok := request.Params.Arguments["paths"].([]interface{}); ok {
+	if paths, ok := request.Params.Arguments["paths"].([]any); ok {
 		for _, path := range paths {
 			if pathStr, ok := path.(string); ok && pathStr != "" {
 				docPaths = append(docPaths, pathStr)
@@ -159,8 +159,8 @@ func (m *Manager) getDocs(ctx context.Context, request mcp.CallToolRequest) (*mc
 	defer cancel()
 
 	// Fetch content for each path
-	result := make(map[string]interface{})
-	docs := make(map[string]interface{})
+	result := make(map[string]any)
+	docs := make(map[string]any)
 
 	for _, path := range docPaths {
 		// Ensure path starts with a slash
@@ -171,12 +171,12 @@ func (m *Manager) getDocs(ctx context.Context, request mcp.CallToolRequest) (*mc
 		url := "https://encore.dev" + path
 		content, err := fetchDocContent(ctx, url)
 		if err != nil {
-			docs[path] = map[string]interface{}{
+			docs[path] = map[string]any{
 				"error":   err.Error(),
 				"success": false,
 			}
 		} else {
-			docs[path] = map[string]interface{}{
+			docs[path] = map[string]any{
 				"content": content,
 				"url":     url,
 				"success": true,
@@ -185,7 +185,7 @@ func (m *Manager) getDocs(ctx context.Context, request mcp.CallToolRequest) (*mc
 	}
 
 	result["docs"] = docs
-	result["summary"] = map[string]interface{}{
+	result["summary"] = map[string]any{
 		"total":        len(docPaths),
 		"base_url":     "https://encore.dev",
 		"requested_at": time.Now().UTC().Format(time.RFC3339),

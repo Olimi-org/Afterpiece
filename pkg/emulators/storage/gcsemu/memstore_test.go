@@ -13,7 +13,7 @@ func TestMemStore(t *testing.T) {
 	// Setup an in-memory emulator.
 	gcsEmu := NewGcsEmu(Options{
 		Verbose: true,
-		Log: func(err error, fmt string, args ...interface{}) {
+		Log: func(err error, fmt string, args ...any) {
 			t.Helper()
 			if err != nil {
 				fmt = "ERROR: " + fmt + ": %s"
@@ -47,7 +47,6 @@ func TestMemStore(t *testing.T) {
 
 	t.Parallel()
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tc.f(t, bh)

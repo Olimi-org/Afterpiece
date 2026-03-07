@@ -122,7 +122,7 @@ func parse(ts *testscript.TestScript, neg bool, args []string) {
 	sourceDir := "testdata"
 
 	stdout := ts.Value("stdout").(*bytes.Buffer)
-	printf := func(format string, args ...interface{}) {
+	printf := func(format string, args ...any) {
 		stdout.WriteString(fmt.Sprintf(format, args...) + "\n")
 	}
 	stderr := ts.Value("stderr").(*bytes.Buffer)
